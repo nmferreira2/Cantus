@@ -1,0 +1,84 @@
+import { getSongs } from "../api/songs.api.js";
+import { createScore, getScore, updateScore } from "../api/scores.api.js";
+import { inputField, textareaField } from "../components/form.js";
+import { setFlash } from "../components/toast.js";
+import { router } from "../router.js";
+import { escapeHtml } from "../utils/format.js";
+
+export function scoreFormPage(id = null) {
+    const editing = Boolean(id);
+    return {
+        title: editing ? "Editar partitura" : "Nova partitura",
+        render: () => `
+            <section class="page-heading"><div><p class="eyebrow">Partituras</p><h2>${editing ? "Editar partitura" : "Adicionar partitura"}</h2><p class="page-description">${editing ? "Atualize os dados sem alterar o histórico de versões." : "Carregue a primeira versão PDF ou MusicXML."}</p></div><a href="${editing ? `/scores/${encodeURIComponent(id)}` : "/scores"}" class="btn btn-light" data-link><i class="bi bi-arrow-left"></i> Cancelar</a></section>
+            <form id="score-form" class="card-surface form-card" novalidate>
+                <div id="form-alert"></div><fieldset disabled>
+                    <div class="form-section"><div><h3>Informação da partitura</h3><p>Associe o ficheiro ao respetivo cântico.</p></div><div class="form-grid">
+                        <div class="form-field"><label class="form-label" for="songId">Cântico <span>*</span></label><select class="form-select" id="songId" name="songId" required></select><div class="invalid-feedback">O cântico é obrigatório.</div></div>
+                        ${inputField({ name: "title", label: "Título", required: true })}
+                        ${textareaField({ name: "description", label: "Descrição", rows: 4 })}
+                        <div class="form-check form-switch align-self-end mb-3"><input class="form-check-input" type="checkbox" id="active" name="active" checked><label for="active" class="form-check-label">Partitura ativa</label></div>
+                    </div></div>
+                    ${editing ? "" : `<div class="form-section"><div><h3>Primeira versão</h3><p>PDF, MusicXML ou MXL comprimido até 20 MB.</p></div><div class="form-field"><label class="file-drop" for="score-file"><i class="bi bi-file-earmark-arrow-up"></i><span>Escolher ficheiro da partitura</span><small>PDF · MusicXML · MXL</small></label><input class="visually-hidden" id="score-file" name="file" type="file" accept=".pdf,.musicxml,.xml,.mxl" required><p id="score-file-name" class="selected-file"></p></div></div>`}
+                    <div class="form-actions"><a href="/scores" class="btn btn-light" data-link>Cancelar</a><button class="btn btn-primary" type="submit"><span class="button-label">${editing ? "Guardar alterações" : "Carregar partitura"}</span><span class="spinner-border spinner-border-sm d-none"></span></button></div>
+                </fieldset>
+            </form>
+        `,
+        mount: () => mount(id)
+    };
+}
+
+async function mount(id) {
+    const form = document.querySelector("#score-form");
+    const fieldset = form.querySelector("fieldset");
+    try {
+        const [songsResponse, score] = await Promise.all([
+            getSongs({ pageSize: 100, sortBy: "title" }),
+            id ? getScore(id) : Promise.resolve(null)
+        ]);
+        form.elements.songId.innerHTML = `<option value="">Escolha um cântico</option>${songsResponse.data.map((song) => `<option value="${escapeHtml(song.id)}">${escapeHtml(song.title)}</option>`).join("")}`;
+        if (score) {
+            form.elements.songId.value = score.songId;
+            form.elements.songId.disabled = true;
+            form.elements.title.value = score.title;
+            form.elements.description.value = score.description ?? "";
+            form.elements.active.checked = score.active;
+        }
+        fieldset.disabled = false;
+        if (score) form.elements.songId.disabled = true;
+    } catch (error) { showError(error.message); return; }
+
+    form.elements.file?.addEventListener("change", () => {
+        document.querySelector("#score-file-name").textContent = form.elements.file.files[0]?.name ?? "";
+    });
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault(); form.classList.add("was-validated");
+        if (!form.checkValidity()) return;
+        const button = form.querySelector('button[type="submit"]'); toggle(button, true);
+        try {
+            const data = {
+                ...(id ? {} : { songId: form.elements.songId.value }),
+                title: form.elements.title.value,
+                description: form.elements.description.value,
+                active: form.elements.active.checked
+            };
+            const score = id
+                ? await updateScore(id, data)
+                : await createScore(data, form.elements.file.files[0]);
+            setFlash(`Partitura ${id ? "atualizada" : "carregada"} com sucesso.`);
+            router.navigate(`/scores/${encodeURIComponent(score.id)}`);
+        } catch (error) { showError(error.message); toggle(button, false); }
+    });
+}
+
+function showError(message) {
+    const target = document.querySelector("#form-alert");
+    target.innerHTML = '<div class="alert alert-danger" role="alert"></div>';
+    target.firstElementChild.textContent = message;
+}
+
+function toggle(button, loading) {
+    button.disabled = loading;
+    button.querySelector(".button-label").classList.toggle("d-none", loading);
+    button.querySelector(".spinner-border").classList.toggle("d-none", !loading);
+}

@@ -1,0 +1,266 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum SongType {
+  ENTRANCE
+  PENITENTIAL_ACT
+  GLORIA
+  RESPONSORIAL_PSALM
+  GOSPEL_ACCLAMATION
+  CREED
+  OFFERTORY
+  HOLY
+  LAMB_OF_GOD
+  COMMUNION
+  THANKSGIVING
+  FINAL
+  OTHER
+}
+
+enum TagGroup {
+  LITURGICAL_SEASON
+  OCCASION
+  CATEGORY
+}
+
+enum SongAttachmentType {
+  PDF
+  TEXT
+}
+
+enum ContributorRole {
+  COMPOSER
+  AUTHOR
+  ARRANGER
+  TRANSLATOR
+  MUSICIAN
+  CHOIR
+}
+
+enum ScoreFormat {
+  PDF
+  MUSICXML
+}
+
+enum MassSongSlot {
+  ENTRANCE
+  PENITENTIAL
+  GLORIA
+  PSALM
+  ALLELUIA
+  OFFERTORY
+  HOLY
+  LAMB_OF_GOD
+  COMMUNION
+  FINAL
+}
+
+model Song {
+  id             String           @id @default(uuid())
+  title          String
+  subtitle       String?
+  composerName   String
+  arrangerName   String?
+  harmonizerName String?
+  originalKey    String?
+  songType       SongType
+  language       String?
+  lyrics         String?
+  notes          String?
+
+  active      Boolean          @default(true)
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  tagLinks    SongTag[]
+  attachments SongAttachment[]
+  scores      Score[]
+  massSongs   MassSong[]
+
+  @@index([deletedAt, title])
+  @@index([songType])
+  @@index([language])
+}
+
+model Contributor {
+  id          String          @id @default(uuid())
+  name        String
+  surname     String?
+  displayName String
+  role        ContributorRole
+  email       String?
+  phone       String?
+  notes       String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  @@index([deletedAt, displayName])
+  @@index([role])
+}
+
+model Score {
+  id          String         @id @default(uuid())
+  songId      String
+  title       String
+  description String?
+  format      ScoreFormat
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  song     Song           @relation(fields: [songId], references: [id])
+  versions ScoreVersion[]
+
+  @@index([songId, deletedAt])
+  @@index([format])
+}
+
+model ScoreVersion {
+  id            String   @id @default(uuid())
+  scoreId       String
+  versionNumber Int
+  originalName  String
+  storageName   String   @unique
+  relativePath  String
+  mimeType      String
+  size          Int
+  createdAt     DateTime @default(now())
+
+  score Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+
+  @@unique([scoreId, versionNumber])
+  @@index([scoreId, createdAt])
+}
+
+model LiturgicalSeason {
+  id             String        @id
+  name           String
+  slug           String        @unique
+  color          String?
+  sortOrder      Int
+  celebrations   Celebration[]
+  masses         Mass[]
+}
+
+model Celebration {
+  id          String             @id @default(uuid())
+  name        String
+  seasonId    String?
+  type        String?
+  month       Int?
+  day         Int?
+  description String?
+  season      LiturgicalSeason? @relation(fields: [seasonId], references: [id])
+  masses      Mass[]
+
+  @@index([seasonId, name])
+  @@index([month, day])
+}
+
+model Mass {
+  id            String   @id @default(uuid())
+  startsAt      DateTime
+  church        String
+  celebrationId String?
+  seasonId      String?
+  presider      String?
+  choir         String?
+  comments      String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  celebration Celebration?      @relation(fields: [celebrationId], references: [id])
+  season      LiturgicalSeason? @relation(fields: [seasonId], references: [id])
+  songs       MassSong[]
+
+  @@index([startsAt, deletedAt])
+  @@index([seasonId])
+  @@index([celebrationId])
+}
+
+model MassSong {
+  id     String       @id @default(uuid())
+  massId String
+  songId String
+  slot   MassSongSlot
+
+  mass Mass @relation(fields: [massId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id])
+
+  @@unique([massId, slot])
+  @@index([songId])
+}
+
+model AppSetting {
+  id               Int      @id @default(1)
+  applicationName  String   @default("Cantus")
+  logoPath         String?
+  primaryColor     String   @default("#6558d3")
+  secondaryColor   String   @default("#171822")
+  churchName       String?
+  churchAddress    String?
+  churchEmail      String?
+  churchPhone      String?
+  defaultLanguage  String   @default("Português")
+  updatedAt        DateTime @updatedAt
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  group     TagGroup  @default(CATEGORY)
+  category  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  songLinks SongTag[]
+
+  @@index([group, name])
+}
+
+model SongTag {
+  songId String
+  tagId  String
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([songId, tagId])
+  @@index([tagId])
+}
+
+model SongAttachment {
+  id           String             @id @default(uuid())
+  songId       String
+  originalName String
+  storageName  String             @unique
+  relativePath String
+  mimeType     String
+  type         SongAttachmentType
+  size         Int
+  createdAt    DateTime           @default(now())
+  deletedAt    DateTime?
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@index([songId, deletedAt])
+}

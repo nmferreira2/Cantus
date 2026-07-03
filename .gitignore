@@ -1,0 +1,10 @@
+node_modules/
+.env
+backend/.env
+*.db
+*.db-journal
+coverage/
+.DS_Store
+npm-debug.log*
+backend/storage/*
+!backend/storage/.gitkeep

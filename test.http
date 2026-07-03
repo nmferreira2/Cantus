@@ -1,0 +1,108 @@
+@baseUrl = http://localhost:3000/api
+@songId = replace-with-song-id
+
+### Health
+GET {{baseUrl}}/health
+
+### List songs
+GET {{baseUrl}}/songs?page=1&pageSize=10&sortBy=title&sortOrder=asc
+
+### Search songs
+GET {{baseUrl}}/songs?search=kyrie
+
+### Filter archived Communion songs
+GET {{baseUrl}}/songs?status=archived&songType=COMMUNION
+
+### Song list facets
+GET {{baseUrl}}/songs/meta/facets
+
+### Liturgical tags
+GET {{baseUrl}}/tags
+
+### Create a tag
+POST {{baseUrl}}/tags
+Content-Type: application/json
+
+{
+  "name": "Vigília",
+  "category": "Contexto"
+}
+
+### Get a song
+GET {{baseUrl}}/songs/{{songId}}
+
+### Create a song
+POST {{baseUrl}}/songs
+Content-Type: application/json
+
+{
+  "title": "Kyrie",
+  "subtitle": "Mass setting",
+  "composerName": "Example Composer",
+  "arrangerName": null,
+  "harmonizerName": null,
+  "originalKey": "D minor",
+  "songType": "PENITENTIAL_ACT",
+  "language": "Greek",
+  "notes": "Use during Lent.",
+  "active": true,
+  "tagIds": ["tag-season-lent"]
+}
+
+### Update a song
+PUT {{baseUrl}}/songs/{{songId}}
+Content-Type: application/json
+
+{
+  "title": "Kyrie",
+  "subtitle": "Revised Mass setting",
+  "composerName": "Example Composer",
+  "arrangerName": "Example Arranger",
+  "harmonizerName": null,
+  "originalKey": "E minor",
+  "songType": "PENITENTIAL_ACT",
+  "language": "Greek",
+  "lyrics": null,
+  "notes": "Revised rehearsal notes.",
+  "active": true,
+  "tagIds": ["tag-season-lent", "tag-category-choir"]
+}
+
+### Soft-delete a song
+DELETE {{baseUrl}}/songs/{{songId}}
+
+### Restore an archived song
+PATCH {{baseUrl}}/songs/{{songId}}/restore
+
+### Import PDF or TXT (supported by REST Client file syntax)
+POST {{baseUrl}}/songs/{{songId}}/import
+Content-Type: multipart/form-data; boundary=CantusBoundary
+
+--CantusBoundary
+Content-Disposition: form-data; name="file"; filename="lyrics.txt"
+Content-Type: text/plain
+
+Verse one
+Verse two
+--CantusBoundary--
+
+### Contributors
+GET {{baseUrl}}/contributors?page=1&pageSize=10
+
+### Scores
+GET {{baseUrl}}/scores?page=1&pageSize=10
+
+### Mass planner references
+GET {{baseUrl}}/masses/references
+
+### Mass calendar
+GET {{baseUrl}}/masses/calendar?from=2026-01-01T00:00:00.000Z&to=2027-01-01T00:00:00.000Z
+
+### Statistics
+GET {{baseUrl}}/statistics
+
+### Global search
+GET {{baseUrl}}/search?q=kyrie
+
+### Settings
+GET {{baseUrl}}/settings

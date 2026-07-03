@@ -1,0 +1,124 @@
+# Cantus
+
+Cantus is a liturgical repertoire management system for parish and choir use.
+It manages Songs, Contributors, versioned Scores, Mass planning, the
+liturgical calendar, statistics, global search, and application settings.
+
+## Stack
+
+- Node.js 22 and Express 5
+- Prisma ORM and SQLite
+- Vanilla JavaScript ES modules
+- Bootstrap 5 with a custom responsive theme
+- Docker and Docker Compose
+
+## Quick start
+
+Requirements: Node.js 22 or newer.
+
+```bash
+cp backend/.env.example backend/.env
+npm install
+npm run db:deploy
+npm run dev
+```
+
+Open <http://localhost:3000>. The development server watches backend and
+frontend files served by Express.
+
+The existing local `.env` can be kept when it already defines `DATABASE_URL`
+and `PORT`.
+
+## Commands
+
+```bash
+npm run dev          # Generate Prisma Client and start with file watching
+npm start            # Start without file watching
+npm test             # Run the Node test suite
+npm run db:migrate   # Create/apply a development migration
+npm run db:deploy    # Apply committed migrations
+```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+The SQLite database is stored in the named `cantus-data` volume and imported
+files in `cantus-files`. Migrations are applied before the container starts the
+application.
+
+## Song API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/songs` | Paginated, sorted, filtered song list |
+| `GET` | `/api/songs/:id` | Get one non-deleted song |
+| `POST` | `/api/songs` | Create a validated song |
+| `PUT` | `/api/songs/:id` | Replace a song's editable data |
+| `DELETE` | `/api/songs/:id` | Soft-delete a song |
+| `PATCH` | `/api/songs/:id/restore` | Restore an archived song |
+| `POST` | `/api/songs/:id/import` | Import a PDF or UTF-8 TXT file |
+| `GET` | `/api/tags` | List assignable liturgical tags |
+
+Titles are required and unique among non-deleted songs. Delete operations set
+`deletedAt` and never physically remove data. List parameters include `search`,
+`page`, `pageSize`, `sortBy`, `sortOrder`, `status`, `songType`, `language`,
+and `tagId`.
+
+PDF imports are stored as referenced attachments. TXT imports are stored and
+also update the Song lyrics. MusicXML and ChordPro return an explicit
+not-implemented response while their future UI affordances remain visible.
+
+## Additional APIs
+
+| Module | Endpoints |
+| --- | --- |
+| Contributors | CRUD and restore under `/api/contributors` |
+| Scores | CRUD under `/api/scores`; version uploads at `/:id/versions` |
+| Mass planner | CRUD under `/api/masses`; `/calendar` and `/references` |
+| Statistics | Aggregates and chart data at `/api/statistics` |
+| Global search | Grouped results at `/api/search?q=` |
+| Settings | Application/church settings and logo at `/api/settings` |
+
+Contributor, Score, and Mass deletion is soft and their list APIs expose an
+explicit archived filter and restore operation. Score versions are immutable:
+uploading a replacement creates the next version while preserving the complete
+history. PDF and MusicXML files can be previewed or downloaded through guarded
+API routes.
+
+## Structure
+
+```text
+backend/
+  prisma/              schema and migrations
+  storage/             imported files (ignored by Git)
+  public/
+    assets/
+      css/             custom theme
+      js/
+        api/           HTTP clients
+        components/    shared UI shell
+        pages/         SPA pages
+        utils/         browser helpers
+        app.js
+        router.js
+    index.html         the only HTML entry point
+  src/
+    config/
+    controllers/
+    middleware/
+    repositories/
+    routes/
+    services/
+    utils/
+    validators/
+    app.js
+    server.js
+  test/
+docs/
+```
+
+See [docs/architecture.md](docs/architecture.md) for design and extension
+guidance.

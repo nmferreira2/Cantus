@@ -1,0 +1,17 @@
+INSERT INTO "Tag" ("id", "name", "slug", "group", "createdAt") VALUES
+    ('tag-season-advent', 'Advent', 'season-advent', 'LITURGICAL_SEASON', CURRENT_TIMESTAMP),
+    ('tag-season-christmas', 'Christmas', 'season-christmas', 'LITURGICAL_SEASON', CURRENT_TIMESTAMP),
+    ('tag-season-lent', 'Lent', 'season-lent', 'LITURGICAL_SEASON', CURRENT_TIMESTAMP),
+    ('tag-season-easter', 'Easter', 'season-easter', 'LITURGICAL_SEASON', CURRENT_TIMESTAMP),
+    ('tag-season-ordinary-time', 'Ordinary Time', 'season-ordinary-time', 'LITURGICAL_SEASON', CURRENT_TIMESTAMP),
+    ('tag-occasion-feasts', 'Feasts', 'occasion-feasts', 'OCCASION', CURRENT_TIMESTAMP),
+    ('tag-occasion-saints', 'Saints', 'occasion-saints', 'OCCASION', CURRENT_TIMESTAMP),
+    ('tag-category-youth', 'Youth', 'category-youth', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-choir', 'Choir', 'category-choir', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-assembly', 'Assembly', 'category-assembly', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-children', 'Children', 'category-children', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-wedding', 'Wedding', 'category-wedding', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-funeral', 'Funeral', 'category-funeral', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-marian', 'Marian', 'category-marian', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-christmas', 'Christmas', 'category-christmas', 'CATEGORY', CURRENT_TIMESTAMP),
+    ('tag-category-holy-week', 'Holy Week', 'category-holy-week', 'CATEGORY', CURRENT_TIMESTAMP);

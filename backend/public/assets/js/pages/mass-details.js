@@ -1,0 +1,35 @@
+import { archiveMass, getMass } from "../api/masses.api.js";
+import { confirmDialog } from "../components/modal.js";
+import { setFlash, showFlash, showToast } from "../components/toast.js";
+import { loadingState, statusBadge } from "../components/ui.js";
+import { router } from "../router.js";
+import { escapeHtml, formatDate } from "../utils/format.js";
+import { formatDateTime, MASS_SLOTS, massSlotLabel } from "../utils/masses.js";
+
+export function massDetailsPage(id) {
+    return { title: "Detalhes da missa", render: () => `<div id="mass-detail">${loadingState("A carregar missa…")}</div>`, mount: async () => { const mass = await getMass(id); render(mass); bind(mass); showFlash(); } };
+}
+
+function render(mass) {
+    const bySlot = new Map(mass.songs.map((item) => [item.slot, item.song]));
+    document.querySelector("#mass-detail").innerHTML = `
+        <section class="page-heading"><div><a href="/masses" class="back-link" data-link><i class="bi bi-arrow-left"></i> Missas</a><div class="d-flex gap-2 mt-3 mb-2">${mass.season ? `<span class="type-badge">${escapeHtml(mass.season.name)}</span>` : ""}${statusBadge(mass.active)}</div><h2>${escapeHtml(mass.celebration?.name || "Missa")}</h2><p class="page-description">${formatDateTime(mass.startsAt)} · ${escapeHtml(mass.church)}</p></div><div class="d-flex gap-2"><a href="/masses/${encodeURIComponent(mass.id)}/edit" class="btn btn-primary" data-link><i class="bi bi-pencil"></i> Editar plano</a><button id="archive-mass" class="btn btn-light text-danger"><i class="bi bi-archive"></i> Arquivar</button></div></section>
+        <div class="detail-grid"><section class="card-surface detail-card"><div class="card-heading"><span class="card-heading-icon"><i class="bi bi-music-note-list"></i></span><div><h3>Plano musical</h3><p>${mass.songs.length} cânticos selecionados</p></div></div><div class="mass-plan-list">${MASS_SLOTS.map(([slot]) => planRow(slot, bySlot.get(slot))).join("")}</div></section>
+        <div class="detail-stack"><section class="card-surface detail-card"><div class="card-heading"><span class="card-heading-icon"><i class="bi bi-calendar-event"></i></span><div><h3>Detalhes da celebração</h3><p>Dados do planeamento</p></div></div><dl class="info-list single-column">${info("Data e hora", formatDateTime(mass.startsAt))}${info("Igreja", mass.church)}${info("Presidente", mass.presider)}${info("Coro", mass.choir)}${info("Criada em", formatDate(mass.createdAt))}</dl>${mass.comments ? `<div class="long-text"><h4>Observações</h4><p>${escapeHtml(mass.comments).replaceAll("\n", "<br>")}</p></div>` : ""}</section></div></div>
+    `;
+}
+
+function planRow(slot, song) {
+    return `<div class="mass-plan-row"><span>${massSlotLabel(slot)}</span>${song ? `<a href="/songs/${encodeURIComponent(song.id)}" data-link><strong>${escapeHtml(song.title)}</strong>${song.subtitle ? `<small>${escapeHtml(song.subtitle)}</small>` : ""}</a>` : '<em>Sem cântico selecionado</em>'}</div>`;
+}
+
+function bind(mass) {
+    document.querySelector("#archive-mass").addEventListener("click", async (event) => {
+        const confirmed = await confirmDialog({ title: "Arquivar missa?", message: "O planeamento poderá ser restaurado mais tarde.", confirmLabel: "Arquivar" });
+        if (!confirmed) return; event.currentTarget.disabled = true;
+        try { await archiveMass(mass.id); setFlash("Missa arquivada."); router.navigate("/masses?status=archived"); }
+        catch (error) { showToast(error.message, "danger"); event.currentTarget.disabled = false; }
+    });
+}
+
+function info(label, value) { return `<div><dt>${label}</dt><dd>${escapeHtml(value || "—")}</dd></div>`; }

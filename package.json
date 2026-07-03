@@ -1,0 +1,20 @@
+{
+  "name": "cantus",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Liturgical repertoire management system",
+  "workspaces": [
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @cantus/backend",
+    "start": "npm run start --workspace @cantus/backend",
+    "test": "npm run test --workspace @cantus/backend",
+    "db:migrate": "npm run db:migrate --workspace @cantus/backend",
+    "db:deploy": "npm run db:deploy --workspace @cantus/backend",
+    "postinstall": "npm run db:generate --workspace @cantus/backend"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
