@@ -4,7 +4,7 @@ import {
     getMassReferences,
     updateMass
 } from "../api/masses.api.js";
-import { getSongs } from "../api/songs.api.js";
+import { getAllSongs } from "../api/songs.api.js";
 import { inputField, textareaField } from "../components/form.js";
 import { setFlash } from "../components/toast.js";
 import { router } from "../router.js";
@@ -39,12 +39,12 @@ export function massFormPage(id = null) {
 async function mount(id) {
     const form = document.querySelector("#mass-form");
     try {
-        const [references, songsResponse, mass] = await Promise.all([
+        const [references, songs, mass] = await Promise.all([
             getMassReferences(),
-            getSongs({ pageSize: 100, status: "active", sortBy: "title" }),
+            getAllSongs({ status: "active", sortBy: "title" }),
             id ? getMass(id) : Promise.resolve(null)
         ]);
-        fillOptions(form, references, songsResponse.data);
+        fillOptions(form, references, songs);
         if (mass) fillMass(form, mass);
         form.querySelector("fieldset").disabled = false;
     } catch (error) { showError(error.message); return; }
@@ -78,7 +78,15 @@ async function mount(id) {
 function fillOptions(form, references, songs) {
     form.elements.celebrationId.innerHTML = `<option value="">Escolha a celebração</option>${references.celebrations.map((item) => `<option value="${escapeHtml(item.id)}" data-season="${escapeHtml(item.seasonId || "")}">${escapeHtml(item.name)}</option>`).join("")}`;
     form.elements.seasonId.innerHTML = `<option value="">Escolha o tempo</option>${references.seasons.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("")}`;
-    const songOptions = `<option value="">Sem cântico selecionado</option>${songs.map((song) => `<option value="${escapeHtml(song.id)}">${escapeHtml(song.title)}</option>`).join("")}`;
+    const songOptions = `<option value="">Sem cântico selecionado</option>${songs.map((song) => {
+        const credits = [
+            song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
+            song.harmonizerName ? `Harm.: ${song.harmonizerName}` : ""
+        ].filter(Boolean).join(" · ");
+        return `<option value="${escapeHtml(song.id)}">${escapeHtml(
+            `${song.title} — ${song.composerName}${credits ? ` [${credits}]` : ""}`
+        )}</option>`;
+    }).join("")}`;
     document.querySelector("#mass-slots").innerHTML = MASS_SLOTS.map(([slot, label]) => `<div class="form-field"><label class="form-label" for="slot-${slot}">${label}</label><select id="slot-${slot}" name="slot-${slot}" class="form-select">${songOptions}</select></div>`).join("");
 }
 

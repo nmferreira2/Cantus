@@ -5,11 +5,11 @@ export async function getStatistics() {
     from.setUTCMonth(from.getUTCMonth() - 11, 1);
     from.setUTCHours(0, 0, 0, 0);
 
-    const [overview, byType, byLanguage, massDates, mostUsed, recent] =
+    const [overview, byType, byLiturgicalTime, massDates, mostUsed, recent] =
         await Promise.all([
             repository.getOverviewCounts(),
             repository.getSongsByType(),
-            repository.getSongsByLanguage(),
+            repository.getSongsByLiturgicalTime(),
             repository.getMassDates(from),
             repository.getMostUsedSongs(),
             repository.getRecentlyAddedSongs()
@@ -19,17 +19,22 @@ export async function getStatistics() {
         overview,
         charts: {
             songsByType: byType.map((entry) => ({
-                label: entry.songType,
-                value: entry._count.songType
+                label: entry.type,
+                value: entry._count.type
             })),
-            songsByLanguage: byLanguage.map((entry) => ({
-                label: entry.language,
-                value: entry._count.language
-            })),
+            songsByLiturgicalTime: byLiturgicalTime,
             massesPerMonth: massesPerMonth(massDates, from)
         },
-        mostUsedSongs: mostUsed,
-        recentlyAddedSongs: recent
+        mostUsedSongs: mostUsed.map(presentSongTypes),
+        recentlyAddedSongs: recent.map(presentSongTypes)
+    };
+}
+
+function presentSongTypes(song) {
+    const { types, ...data } = song;
+    return {
+        ...data,
+        songTypes: types.map(({ type }) => type)
     };
 }
 

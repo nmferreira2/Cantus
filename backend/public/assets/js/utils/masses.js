@@ -1,6 +1,7 @@
 export const MASS_SLOTS = Object.freeze([
     ["ENTRANCE", "Entrada"],
     ["PENITENTIAL", "Ato Penitencial"],
+    ["ASPERSION", "Rito da Aspersão"],
     ["GLORIA", "Glória"],
     ["PSALM", "Salmo"],
     ["ALLELUIA", "Aleluia"],
@@ -8,6 +9,7 @@ export const MASS_SLOTS = Object.freeze([
     ["HOLY", "Santo"],
     ["LAMB_OF_GOD", "Cordeiro de Deus"],
     ["COMMUNION", "Comunhão"],
+    ["THANKSGIVING", "Pós-Comunhão / Ação de Graças"],
     ["FINAL", "Final"]
 ]);
 

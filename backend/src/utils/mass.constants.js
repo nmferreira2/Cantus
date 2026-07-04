@@ -1,6 +1,7 @@
 export const MASS_SONG_SLOTS = Object.freeze([
     "ENTRANCE",
     "PENITENTIAL",
+    "ASPERSION",
     "GLORIA",
     "PSALM",
     "ALLELUIA",
@@ -8,6 +9,7 @@ export const MASS_SONG_SLOTS = Object.freeze([
     "HOLY",
     "LAMB_OF_GOD",
     "COMMUNION",
+    "THANKSGIVING",
     "FINAL"
 ]);
 

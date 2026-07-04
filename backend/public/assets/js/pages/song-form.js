@@ -7,7 +7,6 @@ import { ApiError } from "../api/client.js";
 import { createTag, getTags } from "../api/tags.api.js";
 import {
     inputField,
-    selectField,
     textareaField
 } from "../components/form.js";
 import { setFlash, showToast } from "../components/toast.js";
@@ -59,11 +58,20 @@ export function songFormPage(songId = null) {
                                 label: "Tonalidade original",
                                 placeholder: "Ex.: Sol maior"
                             })}
-                            ${selectField({
-                                name: "songType",
-                                label: "Tipo de cântico",
-                                options: SONG_TYPES.map(([value, label]) => ({ value, label }))
-                            })}
+                            <div class="form-field song-type-field">
+                                <label class="form-label">
+                                    Tipos de cântico <span>*</span>
+                                </label>
+                                <div id="song-type-options" class="tag-options">
+                                    ${songTypeOptions()}
+                                </div>
+                                <div id="song-types-feedback" class="invalid-feedback">
+                                    Selecione pelo menos um tipo de cântico.
+                                </div>
+                                <p class="tag-help">
+                                    Pode selecionar vários tipos para o mesmo cântico.
+                                </p>
+                            </div>
                             ${inputField({
                                 name: "language",
                                 label: "Idioma",
@@ -164,7 +172,8 @@ async function mountSongForm(songId) {
         event.preventDefault();
         clearValidation(form);
 
-        if (!form.checkValidity()) {
+        const validSongTypes = validateSongTypes(form);
+        if (!form.checkValidity() || !validSongTypes) {
             form.classList.add("was-validated");
             return;
         }
@@ -188,6 +197,23 @@ async function mountSongForm(songId) {
             setSubmitting(submitButton, false);
         }
     });
+}
+
+function songTypeOptions() {
+    return SONG_TYPES.map(([value, label]) => {
+        const id = `song-type-${value.toLocaleLowerCase()}`;
+        return `
+            <input
+                class="btn-check"
+                type="checkbox"
+                id="${id}"
+                name="songTypes"
+                value="${value}"
+                ${value === "OTHER" ? "checked" : ""}
+            >
+            <label class="tag-option" for="${id}">${label}</label>
+        `;
+    }).join("");
 }
 
 function bindTagCreation(initialTags) {
@@ -262,7 +288,7 @@ function populateForm(form, song) {
     for (const [field, value] of Object.entries(song)) {
         const control = form.elements.namedItem(field);
 
-        if (!control || field === "tags") {
+        if (!control || field === "tags" || field === "songTypes") {
             continue;
         }
 
@@ -272,6 +298,10 @@ function populateForm(form, song) {
             control.value = value ?? "";
         }
     }
+
+    form.querySelectorAll('input[name="songTypes"]').forEach((control) => {
+        control.checked = song.songTypes.includes(control.value);
+    });
 }
 
 function serializeForm(form) {
@@ -283,7 +313,7 @@ function serializeForm(form) {
         arrangerName: data.get("arrangerName"),
         harmonizerName: data.get("harmonizerName"),
         originalKey: data.get("originalKey"),
-        songType: data.get("songType"),
+        songTypes: data.getAll("songTypes"),
         language: data.get("language"),
         lyrics: data.get("lyrics"),
         notes: data.get("notes"),
@@ -294,6 +324,13 @@ function serializeForm(form) {
 
 function showValidationErrors(form, details = {}) {
     for (const [field, message] of Object.entries(details)) {
+        if (field === "songTypes") {
+            const feedback = document.querySelector("#song-types-feedback");
+            feedback.textContent = message;
+            feedback.style.display = "block";
+            continue;
+        }
+
         if (field === "tagIds") {
             const feedback = document.querySelector("#tag-feedback");
             feedback.textContent = message;
@@ -323,7 +360,16 @@ function clearValidation(form) {
     const tagFeedback = document.querySelector("#tag-feedback");
     tagFeedback.textContent = "";
     tagFeedback.style.display = "";
+    const songTypesFeedback = document.querySelector("#song-types-feedback");
+    songTypesFeedback.textContent = "Selecione pelo menos um tipo de cântico.";
+    songTypesFeedback.style.display = "";
     document.querySelector("#form-alert").innerHTML = "";
+}
+
+function validateSongTypes(form) {
+    const valid = form.querySelectorAll('input[name="songTypes"]:checked').length > 0;
+    document.querySelector("#song-types-feedback").style.display = valid ? "" : "block";
+    return valid;
 }
 
 function showFormAlert(message) {

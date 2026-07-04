@@ -30,21 +30,34 @@ export async function getOverviewCounts() {
 }
 
 export function getSongsByType() {
-    return prisma.song.groupBy({
-        by: ["songType"],
-        where: { deletedAt: null },
-        _count: { songType: true },
-        orderBy: { _count: { songType: "desc" } }
+    return prisma.songTypeAssignment.groupBy({
+        by: ["type"],
+        where: { song: { deletedAt: null } },
+        _count: { type: true },
+        orderBy: { _count: { type: "desc" } }
     });
 }
 
-export function getSongsByLanguage() {
-    return prisma.song.groupBy({
-        by: ["language"],
-        where: { deletedAt: null, language: { not: null } },
-        _count: { language: true },
-        orderBy: { _count: { language: "desc" } }
+export async function getSongsByLiturgicalTime() {
+    const tags = await prisma.tag.findMany({
+        where: { category: "Tempo litúrgico" },
+        select: {
+            name: true,
+            songLinks: {
+                where: { song: { deletedAt: null } },
+                select: { songId: true }
+            }
+        }
     });
+
+    return tags
+        .map(({ name, songLinks }) => ({
+            label: name,
+            value: songLinks.length
+        }))
+        .sort((first, second) => (
+            second.value - first.value || first.label.localeCompare(second.label, "pt")
+        ));
 }
 
 export function getMassDates(from) {
@@ -69,7 +82,11 @@ export async function getMostUsedSongs(limit = 5) {
             id: { in: usage.map(({ songId }) => songId) },
             deletedAt: null
         },
-        select: { id: true, title: true, songType: true }
+        select: {
+            id: true,
+            title: true,
+            types: { select: { type: true } }
+        }
     });
     const byId = new Map(songs.map((song) => [song.id, song]));
 
@@ -89,7 +106,7 @@ export function getRecentlyAddedSongs(limit = 5) {
         select: {
             id: true,
             title: true,
-            songType: true,
+            types: { select: { type: true } },
             createdAt: true
         }
     });

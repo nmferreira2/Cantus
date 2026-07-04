@@ -15,10 +15,6 @@ export async function getSongById(req, res) {
     return res.json(song);
 }
 
-export async function getSongFacets(req, res) {
-    return res.json(await service.getSongFacets());
-}
-
 export async function updateSong(req, res) {
     const song = await service.updateSong(req.params.id, req.validatedBody);
     return res.json(song);
@@ -26,6 +22,11 @@ export async function updateSong(req, res) {
 
 export async function deleteSong(req, res) {
     await service.deleteSong(req.params.id);
+    return res.status(204).send();
+}
+
+export async function permanentlyDeleteSong(req, res) {
+    await service.permanentlyDeleteSong(req.params.id);
     return res.status(204).send();
 }
 

@@ -1,7 +1,7 @@
 import {
     deleteSong,
-    getSongFacets,
     getSongs,
+    permanentlyDeleteSong,
     restoreSong
 } from "../api/songs.api.js";
 import { getTags } from "../api/tags.api.js";
@@ -13,7 +13,7 @@ import {
     emptyState,
     loadingState,
     statusBadge,
-    typeBadge
+    typeBadges
 } from "../components/ui.js";
 import {
     escapeHtml,
@@ -24,8 +24,8 @@ import { groupTags, TAG_GROUP_LABELS } from "../utils/tags.js";
 
 const columns = [
     { key: "title", label: "Cântico", sortable: true },
-    { key: "songType", label: "Tipo", sortable: true },
-    { key: "language", label: "Idioma", sortable: true },
+    { key: "composerName", label: "Compositor", sortable: true },
+    { key: "songTypes", label: "Tipos" },
     { key: "originalKey", label: "Tonalidade" },
     { key: "updatedAt", label: "Atualizado", sortable: true },
     { key: "status", label: "Estado" },
@@ -58,7 +58,7 @@ export function songsPage() {
                             id="search-input"
                             class="form-control"
                             type="search"
-                            placeholder="Pesquisar título, compositor, idioma ou observações"
+                            placeholder="Pesquisar título, compositor, arranjo ou observações"
                             autocomplete="off"
                             aria-label="Pesquisar cânticos"
                         >
@@ -74,10 +74,13 @@ export function songsPage() {
                             ["", "Todos os tipos"],
                             ...SONG_TYPES
                         ])}
-                        ${filterSelect("language-filter", "Idioma", [
-                            ["", "Todos os idiomas"]
+                        ${filterSelect("tag-filter", "Contexto", [["", "Todos os contextos"]])}
+                        ${filterSelect("page-size-filter", "Por página", [
+                            ["10", "10 por página"],
+                            ["25", "25 por página"],
+                            ["50", "50 por página"],
+                            ["100", "100 por página"]
                         ])}
-                        ${filterSelect("tag-filter", "Tag", [["", "Todas as tags"]])}
                     </div>
                     <span id="song-count" class="result-count"></span>
                 </form>
@@ -101,16 +104,9 @@ async function mountSongsPage() {
     input.value = state.search;
     document.querySelector("#status-filter").value = state.status;
     document.querySelector("#type-filter").value = state.songType;
+    document.querySelector("#page-size-filter").value = String(state.pageSize);
 
-    const [facets, tags] = await Promise.all([
-        getSongFacets(),
-        getTags()
-    ]);
-    populateSelect(
-        document.querySelector("#language-filter"),
-        facets.languages.map((language) => [language, language]),
-        state.language
-    );
+    const tags = await getTags();
     populateTagSelect(document.querySelector("#tag-filter"), tags, state.tagId);
 
     const load = async () => {
@@ -156,8 +152,8 @@ async function mountSongsPage() {
         select.addEventListener("change", () => {
             state.status = document.querySelector("#status-filter").value;
             state.songType = document.querySelector("#type-filter").value;
-            state.language = document.querySelector("#language-filter").value;
             state.tagId = document.querySelector("#tag-filter").value;
+            state.pageSize = Number(document.querySelector("#page-size-filter").value);
             state.page = 1;
             load();
         });
@@ -166,6 +162,7 @@ async function mountSongsPage() {
         const sortButton = event.target.closest("[data-sort]");
         const pageButton = event.target.closest("[data-page]");
         const deleteButton = event.target.closest("[data-delete-song]");
+        const permanentDeleteButton = event.target.closest("[data-permanent-delete-song]");
         const restoreButton = event.target.closest("[data-restore-song]");
 
         if (sortButton) {
@@ -196,6 +193,11 @@ async function mountSongsPage() {
 
         if (restoreButton) {
             await restoreArchivedSong(restoreButton, load);
+            return;
+        }
+
+        if (permanentDeleteButton) {
+            await removeArchivedSong(permanentDeleteButton, load);
         }
     });
 
@@ -242,24 +244,34 @@ function songRow(song) {
     const title = archived
         ? `<span class="song-title">${safeTitle}</span>`
         : `<a href="/songs/${encodedId}" class="song-title" data-link>${safeTitle}</a>`;
-    const metadata = [
-        song.subtitle,
-        song.tags.slice(0, 2).map((tag) => tag.name).join(", "),
-        song.attachmentCount > 0
-            ? `${song.attachmentCount} ${song.attachmentCount === 1 ? "ficheiro" : "ficheiros"}`
-            : ""
+    const times = song.tags.filter(({ category, group }) => (
+        category === "Tempo litúrgico" || group === "LITURGICAL_SEASON"
+    ));
+    const secondaryCredits = [
+        song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
+        song.harmonizerName ? `Harm.: ${song.harmonizerName}` : ""
     ].filter(Boolean).join(" · ");
 
     return `
         <tr>
             <td>
                 ${title}
-                <span class="song-subtitle">
-                    ${escapeHtml(metadata || song.composerName || "Sem subtítulo")}
-                </span>
+                ${times.length
+                    ? `<div class="song-liturgical-times">${times.map((tag) => (
+                        `<span class="type-badge">${escapeHtml(tag.name)}</span>`
+                    )).join("")}</div>`
+                    : ""}
+                ${song.subtitle
+                    ? `<span class="song-subtitle">${escapeHtml(song.subtitle)}</span>`
+                    : ""}
             </td>
-            <td>${typeBadge(song.songType)}</td>
-            <td>${escapeHtml(song.language || "—")}</td>
+            <td>
+                <span class="song-title">${escapeHtml(song.composerName)}</span>
+                ${secondaryCredits
+                    ? `<span class="song-subtitle">${escapeHtml(secondaryCredits)}</span>`
+                    : ""}
+            </td>
+            <td><div class="d-flex flex-wrap gap-1">${typeBadges(song.songTypes)}</div></td>
             <td>${escapeHtml(song.originalKey || "—")}</td>
             <td>${formatDate(song.updatedAt)}</td>
             <td>${statusBadge(song.active, archived)}</td>
@@ -307,6 +319,12 @@ function restoreAction(song, safeTitle) {
             data-restore-song="${escapeHtml(song.id)}"
             data-song-title="${safeTitle}"
         ><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>
+        <button
+            class="btn btn-sm btn-light text-danger"
+            type="button"
+            data-permanent-delete-song="${escapeHtml(song.id)}"
+            data-song-title="${safeTitle}"
+        ><i class="bi bi-trash3"></i> Eliminar</button>
     `;
 }
 
@@ -357,9 +375,33 @@ async function restoreArchivedSong(button, reload) {
     }
 }
 
+async function removeArchivedSong(button, reload) {
+    const title = button.dataset.songTitle;
+    const confirmed = await confirmDialog({
+        title: "Eliminar cântico definitivamente?",
+        message: `“${title}” e os respetivos ficheiros serão eliminados. O cântico também será removido dos planeamentos de missas. Esta ação não pode ser anulada.`,
+        confirmLabel: "Eliminar definitivamente"
+    });
+
+    if (!confirmed) {
+        return;
+    }
+
+    button.disabled = true;
+    try {
+        await permanentlyDeleteSong(button.dataset.permanentDeleteSong);
+        showToast(`“${title}” foi eliminado definitivamente.`);
+        await reload();
+    } catch (error) {
+        showToast(error.message, "danger");
+        button.disabled = false;
+    }
+}
+
 function readState() {
     const query = new URLSearchParams(window.location.search);
     const page = Number(query.get("page"));
+    const pageSize = Number(query.get("pageSize"));
     const sortBy = query.get("sortBy");
     const sortOrder = query.get("sortOrder");
     const status = query.get("status");
@@ -368,8 +410,8 @@ function readState() {
     return {
         search: query.get("search") ?? "",
         page: Number.isInteger(page) && page > 0 ? page : 1,
-        pageSize: 10,
-        sortBy: ["title", "songType", "language", "createdAt", "updatedAt"].includes(sortBy)
+        pageSize: [10, 25, 50, 100].includes(pageSize) ? pageSize : 10,
+        sortBy: ["title", "composerName", "createdAt", "updatedAt"].includes(sortBy)
             ? sortBy
             : "title",
         sortOrder: ["asc", "desc"].includes(sortOrder) ? sortOrder : "asc",
@@ -377,7 +419,6 @@ function readState() {
             ? status
             : "current",
         songType: SONG_TYPES.some(([value]) => value === songType) ? songType : "",
-        language: query.get("language") ?? "",
         tagId: query.get("tagId") ?? ""
     };
 }
@@ -413,16 +454,6 @@ function filterSelect(id, label, options) {
             </select>
         </label>
     `;
-}
-
-function populateSelect(select, options, selectedValue) {
-    select.insertAdjacentHTML(
-        "beforeend",
-        options.map(([value, label]) => (
-            `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`
-        )).join("")
-    );
-    select.value = selectedValue;
 }
 
 function populateTagSelect(select, tags, selectedValue) {

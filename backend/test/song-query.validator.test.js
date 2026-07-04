@@ -21,7 +21,7 @@ test("parseSongQuery parses supported filters", () => {
     const query = parseSongQuery({
         page: "2",
         pageSize: "25",
-        sortBy: "updatedAt",
+        sortBy: "composerName",
         sortOrder: "desc",
         status: "archived",
         songType: "COMMUNION",
@@ -31,6 +31,7 @@ test("parseSongQuery parses supported filters", () => {
 
     assert.equal(query.page, 2);
     assert.equal(query.pageSize, 25);
+    assert.equal(query.sortBy, "composerName");
     assert.equal(query.language, "English");
     assert.equal(query.status, "archived");
 });

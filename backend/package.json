@@ -10,7 +10,9 @@
     "test": "node --test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "db:import-repertoire": "node prisma/import-repertoire.js",
+    "db:import-plans": "node prisma/import-plans.js"
   },
   "engines": {
     "node": ">=22"

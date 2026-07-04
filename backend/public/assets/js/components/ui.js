@@ -1,4 +1,8 @@
-import { escapeHtml, songTypeLabel } from "../utils/format.js";
+import {
+    escapeHtml,
+    orderSongTypes,
+    songTypeLabel
+} from "../utils/format.js";
 
 export function loadingState(message = "A carregar…") {
     return `
@@ -33,4 +37,8 @@ export function statusBadge(active, archived = false) {
 
 export function typeBadge(type) {
     return `<span class="type-badge">${songTypeLabel(type)}</span>`;
+}
+
+export function typeBadges(types = []) {
+    return orderSongTypes(types).map(typeBadge).join("");
 }

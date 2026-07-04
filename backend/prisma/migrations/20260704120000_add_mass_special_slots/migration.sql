@@ -1,0 +1,2 @@
+-- SQLite stores Prisma enum values as text, so no table alteration is required.
+-- The schema now accepts ASPERSION and THANKSGIVING MassSongSlot values.

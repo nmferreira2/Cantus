@@ -10,9 +10,9 @@ const massInclude = {
                 select: {
                     id: true,
                     title: true,
-                    subtitle: true,
-                    songType: true,
-                    active: true
+                    composerName: true,
+                    arrangerName: true,
+                    harmonizerName: true,
                 }
             }
         }

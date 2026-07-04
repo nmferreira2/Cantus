@@ -2,7 +2,13 @@ import prisma from "../config/prisma.js";
 
 const scoreInclude = {
     song: {
-        select: { id: true, title: true }
+        select: {
+            id: true,
+            title: true,
+            composerName: true,
+            arrangerName: true,
+            harmonizerName: true
+        }
     },
     versions: {
         orderBy: { versionNumber: "desc" }
@@ -21,7 +27,15 @@ export async function findAll(query) {
             skip: (query.page - 1) * query.pageSize,
             take: query.pageSize,
             include: {
-                song: { select: { id: true, title: true } },
+                song: {
+                    select: {
+                        id: true,
+                        title: true,
+                        composerName: true,
+                        arrangerName: true,
+                        harmonizerName: true
+                    }
+                },
                 versions: {
                     orderBy: { versionNumber: "desc" },
                     take: 1

@@ -27,7 +27,8 @@ Open <http://localhost:3000>. The development server watches backend and
 frontend files served by Express.
 
 The existing local `.env` can be kept when it already defines `DATABASE_URL`
-and `PORT`.
+and `PORT`. Access credentials are configured with `AUTH_USERNAME`,
+`AUTH_PASSWORD`, and `SESSION_SECRET`.
 
 ## Commands
 
@@ -37,6 +38,8 @@ npm start            # Start without file watching
 npm test             # Run the Node test suite
 npm run db:migrate   # Create/apply a development migration
 npm run db:deploy    # Apply committed migrations
+npm run db:import-repertoire # Import/update the supplied repertoire batch
+npm run db:import-plans # Import/update the supplied historical mass plans
 ```
 
 ## Docker
@@ -59,11 +62,16 @@ application.
 | `PUT` | `/api/songs/:id` | Replace a song's editable data |
 | `DELETE` | `/api/songs/:id` | Soft-delete a song |
 | `PATCH` | `/api/songs/:id/restore` | Restore an archived song |
+| `DELETE` | `/api/songs/:id/permanent` | Permanently delete an archived song |
 | `POST` | `/api/songs/:id/import` | Import a PDF or UTF-8 TXT file |
 | `GET` | `/api/tags` | List assignable liturgical tags |
 
-Titles are required and unique among non-deleted songs. Delete operations set
-`deletedAt` and never physically remove data. List parameters include `search`,
+Titles and composers are required. The combination of title, composer, and
+arrangement identifies duplicate active songs, allowing common titles by
+different composers to coexist. Each song has one or more `songTypes`, while
+the `songType` list parameter filters songs containing that type. Normal delete
+operations set `deletedAt`; permanent deletion is only available for archived
+songs. List parameters include `search`,
 `page`, `pageSize`, `sortBy`, `sortOrder`, `status`, `songType`, `language`,
 and `tagId`.
 

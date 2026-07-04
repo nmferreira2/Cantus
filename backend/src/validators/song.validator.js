@@ -65,10 +65,7 @@ export function parseSong(payload) {
         );
     }
 
-    song.songType = payload.songType ?? "OTHER";
-    if (typeof song.songType !== "string" || !SONG_TYPES.includes(song.songType)) {
-        errors.songType = "O tipo de cântico é inválido.";
-    }
+    song.songTypes = parseSongTypes(payload.songTypes, errors);
 
     song.active = payload.active ?? true;
     if (typeof song.active !== "boolean") {
@@ -101,6 +98,28 @@ function parseTagIds(value, errors) {
     }
 
     return tagIds;
+}
+
+function parseSongTypes(value, errors) {
+    if (value === undefined) {
+        return ["OTHER"];
+    }
+
+    if (
+        !Array.isArray(value)
+        || value.length === 0
+        || value.some((type) => typeof type !== "string")
+    ) {
+        errors.songTypes = "Selecione pelo menos um tipo de cântico.";
+        return [];
+    }
+
+    const songTypes = [...new Set(value)];
+    if (songTypes.some((type) => !SONG_TYPES.includes(type))) {
+        errors.songTypes = "Um ou mais tipos de cântico são inválidos.";
+    }
+
+    return songTypes;
 }
 
 function parseRequiredText(value, field, maxLength, errors) {

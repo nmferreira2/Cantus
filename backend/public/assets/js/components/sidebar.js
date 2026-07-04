@@ -1,15 +1,27 @@
 const navigation = [
     { href: "/", label: "Painel", icon: "grid-1x2" },
     { href: "/songs", label: "Cânticos", icon: "music-note-list" },
+    {
+        href: "/songs?status=archived",
+        label: "Cânticos arquivados",
+        icon: "archive",
+        archivedSongs: true
+    },
+    { href: "/composers", label: "Compositores", icon: "person-check" },
     { href: "/contributors", label: "Contribuidores", icon: "people" },
-    { href: "/scores", label: "Partituras", icon: "file-earmark-music" },
     { href: "/masses", label: "Planeamento da missa", icon: "calendar3" },
     { href: "/statistics", label: "Estatísticas", icon: "bar-chart" }
 ];
 
 export function sidebar(pathname) {
+    const showingArchivedSongs = pathname === "/songs"
+        && new URLSearchParams(window.location.search).get("status") === "archived";
     const links = navigation.map((item) => {
-        const active = item.href === "/"
+        const active = item.archivedSongs
+            ? showingArchivedSongs
+            : item.href === "/songs"
+                ? pathname.startsWith("/songs") && !showingArchivedSongs
+                : item.href === "/"
             ? pathname === "/"
             : pathname.startsWith(item.href);
         return `

@@ -1,6 +1,15 @@
 @baseUrl = http://localhost:3000/api
 @songId = replace-with-song-id
 
+### Login (the REST client keeps the session cookie)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "Cantus2026!"
+}
+
 ### Health
 GET {{baseUrl}}/health
 
@@ -37,14 +46,14 @@ Content-Type: application/json
 
 {
   "title": "Kyrie",
-  "subtitle": "Mass setting",
-  "composerName": "Example Composer",
+  "subtitle": "Ordinário da missa",
+  "composerName": "Compositor de exemplo",
   "arrangerName": null,
   "harmonizerName": null,
-  "originalKey": "D minor",
-  "songType": "PENITENTIAL_ACT",
-  "language": "Greek",
-  "notes": "Use during Lent.",
+  "originalKey": "Ré menor",
+  "songTypes": ["PENITENTIAL_ACT", "ENTRANCE"],
+  "language": "Grego",
+  "notes": "Utilizar durante a Quaresma.",
   "active": true,
   "tagIds": ["tag-season-lent"]
 }
@@ -55,15 +64,15 @@ Content-Type: application/json
 
 {
   "title": "Kyrie",
-  "subtitle": "Revised Mass setting",
-  "composerName": "Example Composer",
-  "arrangerName": "Example Arranger",
+  "subtitle": "Ordinário da missa revisto",
+  "composerName": "Compositor de exemplo",
+  "arrangerName": "Arranjador de exemplo",
   "harmonizerName": null,
-  "originalKey": "E minor",
-  "songType": "PENITENTIAL_ACT",
-  "language": "Greek",
+  "originalKey": "Mi menor",
+  "songTypes": ["PENITENTIAL_ACT", "ENTRANCE"],
+  "language": "Grego",
   "lyrics": null,
-  "notes": "Revised rehearsal notes.",
+  "notes": "Observações de ensaio revistas.",
   "active": true,
   "tagIds": ["tag-season-lent", "tag-category-choir"]
 }
@@ -73,6 +82,9 @@ DELETE {{baseUrl}}/songs/{{songId}}
 
 ### Restore an archived song
 PATCH {{baseUrl}}/songs/{{songId}}/restore
+
+### Permanently delete an archived song
+DELETE {{baseUrl}}/songs/{{songId}}/permanent
 
 ### Import PDF or TXT (supported by REST Client file syntax)
 POST {{baseUrl}}/songs/{{songId}}/import

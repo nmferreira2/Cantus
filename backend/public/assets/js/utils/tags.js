@@ -3,6 +3,7 @@ export const TAG_GROUP_LABELS = Object.freeze({
     OCCASION: "Solenidades",
     CATEGORY: "Outras tags",
     "Tempo litúrgico": "Tempos litúrgicos",
+    "Momento litúrgico": "Momentos litúrgicos",
     Solenidade: "Solenidades",
     Temática: "Temáticas",
     Contexto: "Contextos",

@@ -25,6 +25,12 @@ export async function apiRequest(url, options = {}) {
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
+        if (
+            response.status === 401
+            && !url.startsWith("/api/auth/")
+        ) {
+            window.dispatchEvent(new CustomEvent("cantus:unauthorized"));
+        }
         throw new ApiError(
             payload?.error?.message || "Não foi possível concluir o pedido.",
             response.status,

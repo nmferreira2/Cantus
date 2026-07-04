@@ -1,4 +1,9 @@
+import { escapeHtml } from "../utils/format.js";
+
 export function navbar(title) {
+    const username = window.cantusUser?.username || "Utilizador";
+    const initial = username.slice(0, 1).toLocaleUpperCase("pt-PT");
+    const safeUsername = escapeHtml(username);
     return `
         <header class="topbar">
             <div class="d-flex align-items-center gap-3">
@@ -20,7 +25,17 @@ export function navbar(title) {
                     <i class="bi bi-search"></i>
                     <input name="q" type="search" placeholder="Pesquisar no Cantus" aria-label="Pesquisa global">
                 </form>
-                <div class="avatar" aria-label="Área de trabalho Cantus">C</div>
+                <div class="user-menu">
+                    <div class="avatar" aria-label="Sessão de ${safeUsername}">${escapeHtml(initial)}</div>
+                    <span class="user-name">${safeUsername}</span>
+                    <button
+                        id="logout-button"
+                        class="icon-button"
+                        type="button"
+                        title="Terminar sessão"
+                        aria-label="Terminar sessão"
+                    ><i class="bi bi-box-arrow-right"></i></button>
+                </div>
             </div>
         </header>
     `;

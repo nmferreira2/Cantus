@@ -1,7 +1,7 @@
 import { globalSearch } from "../api/search.api.js";
 import { loadingState } from "../components/ui.js";
 import { contributorRoleLabel } from "../utils/contributors.js";
-import { escapeHtml, songTypeLabel } from "../utils/format.js";
+import { escapeHtml, songTypesLabel } from "../utils/format.js";
 import { formatDateTime } from "../utils/masses.js";
 
 export function searchPage() {
@@ -39,7 +39,7 @@ async function load(query) {
         target.innerHTML = total === 0
             ? '<div class="empty-state card-surface"><i class="bi bi-search"></i><h3>Nenhum resultado encontrado</h3><p>Experimente uma expressão mais abrangente.</p></div>'
             : `<div class="search-groups">
-                ${group("Cânticos", "music-note-list", results.songs, (item) => ({ href: `/songs/${item.id}`, title: item.title, subtitle: [item.composerName, songTypeLabel(item.songType)].filter(Boolean).join(" · ") }))}
+                ${group("Cânticos", "music-note-list", results.songs, (item) => ({ href: `/songs/${item.id}`, title: item.title, subtitle: [item.composerName, songTypesLabel(item.songTypes)].filter(Boolean).join(" · ") }))}
                 ${group("Contribuidores", "people", results.contributors, (item) => ({ href: `/contributors/${item.id}`, title: item.displayName, subtitle: contributorRoleLabel(item.role) }))}
                 ${group("Partituras", "file-earmark-music", results.scores, (item) => ({ href: `/scores/${item.id}`, title: item.title, subtitle: `${item.format} · ${item.song.title}` }))}
                 ${group("Missas", "calendar3", results.masses, (item) => ({ href: `/masses/${item.id}`, title: item.celebration?.name || item.church, subtitle: `${formatDateTime(item.startsAt)} · ${item.church}` }))}

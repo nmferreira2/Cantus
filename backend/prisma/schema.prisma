@@ -57,6 +57,7 @@ enum ScoreFormat {
 enum MassSongSlot {
   ENTRANCE
   PENITENTIAL
+  ASPERSION
   GLORIA
   PSALM
   ALLELUIA
@@ -64,6 +65,7 @@ enum MassSongSlot {
   HOLY
   LAMB_OF_GOD
   COMMUNION
+  THANKSGIVING
   FINAL
 }
 
@@ -75,7 +77,6 @@ model Song {
   arrangerName   String?
   harmonizerName String?
   originalKey    String?
-  songType       SongType
   language       String?
   lyrics         String?
   notes          String?
@@ -87,13 +88,23 @@ model Song {
   deletedAt   DateTime?
 
   tagLinks    SongTag[]
+  types       SongTypeAssignment[]
   attachments SongAttachment[]
   scores      Score[]
   massSongs   MassSong[]
 
   @@index([deletedAt, title])
-  @@index([songType])
   @@index([language])
+}
+
+model SongTypeAssignment {
+  songId String
+  type   SongType
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([songId, type])
+  @@index([type])
 }
 
 model Contributor {

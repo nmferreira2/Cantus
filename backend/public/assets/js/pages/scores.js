@@ -113,8 +113,13 @@ function row(score) {
     const archived = Boolean(score.deletedAt);
     const id = encodeURIComponent(score.id);
     const title = escapeHtml(score.title);
+    const authorship = [
+        score.song.composerName,
+        score.song.arrangerName ? `Arr.: ${score.song.arrangerName}` : "",
+        score.song.harmonizerName ? `Harm.: ${score.song.harmonizerName}` : ""
+    ].filter(Boolean).join(" · ");
     return `<tr>
-        <td>${archived ? `<span class="song-title">${title}</span>` : `<a href="/scores/${id}" class="song-title" data-link>${title}</a>`}<span class="song-subtitle">${escapeHtml(score.latestVersion?.originalName || "Sem ficheiro")}</span></td>
+        <td>${archived ? `<span class="song-title">${title}</span>` : `<a href="/scores/${id}" class="song-title" data-link>${title}</a>`}<span class="song-subtitle">${escapeHtml(authorship)}</span><span class="song-subtitle">${escapeHtml(score.latestVersion?.originalName || "Sem ficheiro")}</span></td>
         <td>${escapeHtml(score.song.title)}</td><td><span class="type-badge">${score.format === "MUSICXML" ? "MusicXML" : "PDF"}</span></td>
         <td>${score.versionCount}</td><td>${formatDate(score.updatedAt)}</td><td>${statusBadge(score.active, archived)}</td>
         <td><div class="row-actions">${archived

@@ -15,9 +15,25 @@ const SONG_TYPE_LABELS = Object.freeze({
 });
 
 export const SONG_TYPES = Object.entries(SONG_TYPE_LABELS);
+const SONG_TYPE_ORDER = new Map(
+    SONG_TYPES.map(([value], index) => [value, index])
+);
 
 export function songTypeLabel(value) {
     return SONG_TYPE_LABELS[value] ?? "Outro";
+}
+
+export function songTypesLabel(values = []) {
+    return orderSongTypes(values).map(songTypeLabel).join(", ");
+}
+
+export function orderSongTypes(values = []) {
+    return [...values].sort(
+        (left, right) => (
+            (SONG_TYPE_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER)
+            - (SONG_TYPE_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER)
+        )
+    );
 }
 
 export function formatDate(value) {

@@ -1,4 +1,5 @@
 import { layout } from "./components/layout.js";
+import { composersPage } from "./pages/composers.js";
 import { contributorDetailsPage } from "./pages/contributor-details.js";
 import { contributorFormPage } from "./pages/contributor-form.js";
 import { contributorsPage } from "./pages/contributors.js";
@@ -30,6 +31,7 @@ const routes = [
         pattern: /^\/songs\/([^/]+)$/,
         page: ([id]) => songDetailsPage(decodeURIComponent(id))
     },
+    { pattern: /^\/composers$/, page: composersPage },
     { pattern: /^\/contributors$/, page: contributorsPage },
     { pattern: /^\/contributors\/new$/, page: () => contributorFormPage() },
     {
@@ -67,6 +69,12 @@ const routes = [
 
 class Router {
     start() {
+        if (this.started) {
+            this.render();
+            return;
+        }
+
+        this.started = true;
         window.addEventListener("popstate", () => this.render());
         document.addEventListener("click", (event) => {
             const link = event.target.closest("a[data-link]");
@@ -96,6 +104,10 @@ class Router {
     }
 
     async render() {
+        if (!window.cantusUser) {
+            return;
+        }
+
         const pathname = normalizePath(window.location.pathname);
         const matchedRoute = routes.find((route) => route.pattern.test(pathname));
         const matches = matchedRoute?.pattern.exec(pathname)?.slice(1) ?? [];

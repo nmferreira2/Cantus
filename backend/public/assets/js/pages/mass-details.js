@@ -20,7 +20,25 @@ function render(mass) {
 }
 
 function planRow(slot, song) {
-    return `<div class="mass-plan-row"><span>${massSlotLabel(slot)}</span>${song ? `<a href="/songs/${encodeURIComponent(song.id)}" data-link><strong>${escapeHtml(song.title)}</strong>${song.subtitle ? `<small>${escapeHtml(song.subtitle)}</small>` : ""}</a>` : '<em>Sem cântico selecionado</em>'}</div>`;
+    if (!song) {
+        return `<div class="mass-plan-row"><span>${massSlotLabel(slot)}</span><em>Sem cântico selecionado</em></div>`;
+    }
+
+    const credits = [
+        song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
+        song.harmonizerName ? `Harm.: ${song.harmonizerName}` : ""
+    ].filter(Boolean).join(" · ");
+    const label = `${song.title} — ${song.composerName}`;
+
+    return `
+        <div class="mass-plan-row">
+            <span>${massSlotLabel(slot)}</span>
+            <a href="/songs/${encodeURIComponent(song.id)}" data-link>
+                <strong>${escapeHtml(label)}</strong>
+                ${credits ? `<small>${escapeHtml(credits)}</small>` : ""}
+            </a>
+        </div>
+    `;
 }
 
 function bind(mass) {

@@ -13,8 +13,23 @@ export function getSongs(options = {}) {
     return apiRequest(`/api/songs${suffix}`);
 }
 
-export function getSongFacets() {
-    return apiRequest("/api/songs/meta/facets");
+export async function getAllSongs(options = {}) {
+    const songs = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const response = await getSongs({
+            ...options,
+            page,
+            pageSize: 100
+        });
+        songs.push(...response.data);
+        totalPages = response.pagination.totalPages;
+        page += 1;
+    } while (page <= totalPages);
+
+    return songs;
 }
 
 export function getSong(id) {
@@ -37,6 +52,12 @@ export function updateSong(id, song) {
 
 export function deleteSong(id) {
     return apiRequest(`/api/songs/${encodeURIComponent(id)}`, {
+        method: "DELETE"
+    });
+}
+
+export function permanentlyDeleteSong(id) {
+    return apiRequest(`/api/songs/${encodeURIComponent(id)}/permanent`, {
         method: "DELETE"
     });
 }

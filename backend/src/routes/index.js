@@ -1,5 +1,8 @@
 import { Router } from "express";
 
+import { requireAuthentication } from "../middleware/auth.middleware.js";
+import authRoutes from "./auth.routes.js";
+import composerRoutes from "./composer.routes.js";
 import contributorRoutes from "./contributor.routes.js";
 import healthRoutes from "./health.routes.js";
 import massRoutes from "./mass.routes.js";
@@ -13,6 +16,9 @@ import tagRoutes from "./tag.routes.js";
 const router = Router();
 
 router.use("/health", healthRoutes);
+router.use("/auth", authRoutes);
+router.use(requireAuthentication);
+router.use("/composers", composerRoutes);
 router.use("/contributors", contributorRoutes);
 router.use("/scores", scoreRoutes);
 router.use("/masses", massRoutes);

@@ -23,7 +23,7 @@ export async function globalSearch(query, limit = 5) {
                 title: true,
                 subtitle: true,
                 composerName: true,
-                songType: true
+                types: { select: { type: true } }
             }
         }),
         prisma.contributor.findMany({
@@ -81,5 +81,13 @@ export async function globalSearch(query, limit = 5) {
         })
     ]);
 
-    return { songs, contributors, scores, masses };
+    return {
+        songs: songs.map(({ types, ...song }) => ({
+            ...song,
+            songTypes: types.map(({ type }) => type)
+        })),
+        contributors,
+        scores,
+        masses
+    };
 }

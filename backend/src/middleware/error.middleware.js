@@ -43,7 +43,7 @@ function normalizeError(error) {
         }
 
         if (error.code === "P2002") {
-            return new AppError(409, "Já existe um cântico com este título.");
+            return new AppError(409, "Já existe um registo com estes dados.");
         }
     }
 

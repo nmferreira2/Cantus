@@ -1,4 +1,5 @@
 import * as repository from "../repositories/song.repository.js";
+import * as fileRepository from "../repositories/file.repository.js";
 import * as tagRepository from "../repositories/tag.repository.js";
 import { AppError } from "../utils/app-error.js";
 
@@ -34,12 +35,12 @@ export async function getAllSongs(query) {
 }
 
 export async function createSong(data) {
-    const { tagIds, ...songData } = data;
+    const { tagIds, songTypes, ...songData } = data;
     await Promise.all([
-        ensureUniqueTitle(songData.title),
+        ensureUniqueSong(songData),
         ensureValidTags(tagIds)
     ]);
-    return repository.createSong(songData, tagIds);
+    return repository.createSong(songData, tagIds, songTypes);
 }
 
 export async function getSongById(id) {
@@ -52,23 +53,55 @@ export async function getSongById(id) {
     return song;
 }
 
-export function getSongFacets() {
-    return repository.getSongFacets();
-}
-
 export async function updateSong(id, data) {
-    const { tagIds, ...songData } = data;
+    const { tagIds, songTypes, ...songData } = data;
     await getSongById(id);
     await Promise.all([
-        ensureUniqueTitle(songData.title, id),
+        ensureUniqueSong(songData, id),
         ensureValidTags(tagIds)
     ]);
-    return repository.updateSong(id, songData, tagIds);
+    return repository.updateSong(id, songData, tagIds, songTypes);
 }
 
 export async function deleteSong(id) {
     await getSongById(id);
     return repository.softDeleteSong(id);
+}
+
+export async function permanentlyDeleteSong(id) {
+    const song = await repository.getSongDeletionData(id);
+
+    if (!song) {
+        throw new AppError(404, "Cântico não encontrado.");
+    }
+
+    if (!song.deletedAt) {
+        throw new AppError(
+            409,
+            "Arquive o cântico antes de o eliminar definitivamente."
+        );
+    }
+
+    const filePaths = [
+        ...song.attachments.map(({ relativePath }) => relativePath),
+        ...song.scores.flatMap(({ versions }) => (
+            versions.map(({ relativePath }) => relativePath)
+        ))
+    ];
+
+    await repository.hardDeleteSong(id);
+
+    const removals = await Promise.allSettled(
+        filePaths.map((relativePath) => fileRepository.removeFile(relativePath))
+    );
+    removals.forEach((result, index) => {
+        if (result.status === "rejected") {
+            console.error(
+                `Não foi possível remover o ficheiro órfão ${filePaths[index]}.`,
+                result.reason
+            );
+        }
+    });
 }
 
 export async function restoreSong(id) {
@@ -82,17 +115,26 @@ export async function restoreSong(id) {
         throw new AppError(409, "O cântico não está arquivado.");
     }
 
-    await ensureUniqueTitle(song.title, id);
+    await ensureUniqueSong(song, id);
     return repository.restoreSong(id);
 }
 
-async function ensureUniqueTitle(title, excludedId) {
-    const duplicate = await repository.getSongByTitle(title, excludedId);
+async function ensureUniqueSong(song, excludedId) {
+    const duplicate = await repository.getSongByIdentity(
+        song.title,
+        song.composerName,
+        song.arrangerName,
+        excludedId
+    );
 
     if (duplicate) {
-        throw new AppError(409, "Já existe um cântico com este título.", {
-            title: "O título deve ser único."
-        });
+        throw new AppError(
+            409,
+            "Já existe um cântico com o mesmo título, compositor e arranjo.",
+            {
+                title: "Altere o título, o compositor ou o arranjo."
+            }
+        );
     }
 }
 

@@ -21,7 +21,7 @@ export const SONG_FIELDS = Object.freeze([
     "arrangerName",
     "harmonizerName",
     "originalKey",
-    "songType",
+    "songTypes",
     "language",
     "lyrics",
     "notes",
@@ -31,7 +31,7 @@ export const SONG_FIELDS = Object.freeze([
 
 export const SONG_SORT_FIELDS = Object.freeze([
     "title",
-    "songType",
+    "composerName",
     "language",
     "createdAt",
     "updatedAt"

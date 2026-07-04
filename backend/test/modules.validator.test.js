@@ -5,6 +5,7 @@ import {
     parseContributor,
     parseContributorQuery
 } from "../src/validators/contributor.validator.js";
+import { parseComposerMerge } from "../src/validators/composer.validator.js";
 import {
     parseCalendarQuery,
     parseMass
@@ -30,6 +31,24 @@ test("contributor validation derives a display name and validates roles", () => 
     assert.equal(parseContributorQuery({ page: "2" }).page, 2);
 });
 
+test("composer validation normalizes names used in rename and merge", () => {
+    assert.deepEqual(parseComposerMerge({
+        sources: ["  M. Luís ", "M. Luís", "Manuel Luís"],
+        name: " Manuel Luís "
+    }), {
+        sources: ["M. Luís", "Manuel Luís"],
+        name: "Manuel Luís"
+    });
+    assert.throws(
+        () => parseComposerMerge({ sources: [], name: "" }),
+        (error) => (
+            error.status === 422
+            && Boolean(error.details.sources)
+            && Boolean(error.details.name)
+        )
+    );
+});
+
 test("score validation handles multipart booleans and query limits", () => {
     const score = parseScore({
         songId: "song-1",
@@ -50,10 +69,12 @@ test("Mass validation normalizes song slots and rejects unknown slots", () => {
         church: "Parish Church",
         songs: {
             ENTRANCE: "song-1",
-            COMMUNION: "song-2"
+            ASPERSION: "song-2",
+            COMMUNION: "song-3",
+            THANKSGIVING: "song-4"
         }
     });
-    assert.equal(mass.songs.length, 2);
+    assert.equal(mass.songs.length, 4);
     assert.ok(mass.startsAt instanceof Date);
     assert.throws(
         () => parseMass({

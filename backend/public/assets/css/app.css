@@ -243,6 +243,85 @@ a.sidebar-link:hover {
     gap: 12px;
 }
 
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-name {
+    max-width: 130px;
+    overflow: hidden;
+    color: var(--cantus-muted);
+    font-size: 0.8rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.auth-page {
+    background:
+        radial-gradient(circle at top left, rgba(101, 88, 211, 0.16), transparent 36%),
+        #f6f7fb;
+}
+
+.auth-shell {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 24px;
+}
+
+.auth-card {
+    width: min(430px, 100%);
+    padding: clamp(28px, 6vw, 42px);
+}
+
+.auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 38px;
+}
+
+.auth-brand > div {
+    display: grid;
+}
+
+.auth-brand strong {
+    font-size: 1.08rem;
+}
+
+.auth-brand small,
+.auth-heading p {
+    color: var(--cantus-muted);
+}
+
+.auth-heading {
+    margin-bottom: 26px;
+}
+
+.auth-heading h1 {
+    margin: 0;
+    letter-spacing: -0.035em;
+    font-size: 1.8rem;
+}
+
+.auth-heading p:last-child {
+    margin: 9px 0 0;
+    line-height: 1.55;
+}
+
+.auth-card form {
+    display: grid;
+    gap: 18px;
+}
+
+.auth-submit {
+    width: 100%;
+    margin-top: 4px;
+}
+
 .topbar-search {
     position: relative;
 }
@@ -494,6 +573,17 @@ a.sidebar-link:hover {
     font-size: 0.78rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.song-liturgical-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.song-liturgical-times .type-badge {
+    font-size: 0.68rem;
 }
 
 .type-badge,
@@ -843,6 +933,14 @@ a.sidebar-link:hover {
     gap: 20px;
 }
 
+.song-type-field {
+    grid-column: 1 / -1;
+}
+
+.song-type-field .tag-options {
+    margin-top: 8px;
+}
+
 .tag-groups,
 .detail-tag-groups {
     display: grid;
@@ -949,6 +1047,73 @@ a.sidebar-link:hover {
     display: grid;
     grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
     gap: 18px;
+}
+
+.song-history-card {
+    margin-top: 18px;
+}
+
+.composer-management-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.7fr);
+    align-items: start;
+    gap: 18px;
+}
+
+.composer-catalogue {
+    overflow: hidden;
+}
+
+.composer-list {
+    max-height: 680px;
+    overflow-y: auto;
+}
+
+.composer-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 62px;
+    padding: 10px 18px;
+    border-top: 1px solid var(--cantus-border);
+    cursor: pointer;
+}
+
+.composer-option:hover {
+    background: #faf9ff;
+}
+
+.composer-option > span {
+    display: grid;
+    gap: 2px;
+}
+
+.composer-option strong {
+    font-size: 0.86rem;
+}
+
+.composer-option small {
+    color: var(--cantus-muted);
+    font-size: 0.74rem;
+}
+
+.composer-editor {
+    position: sticky;
+    top: 92px;
+}
+
+.composer-editor form,
+.selected-composers {
+    display: grid;
+    gap: 12px;
+}
+
+.selected-composers {
+    margin-bottom: 18px;
+}
+
+.composer-empty {
+    padding: 24px;
 }
 
 .score-detail-grid {
@@ -1333,6 +1498,100 @@ a.sidebar-link:hover {
     padding: 26px;
 }
 
+.disclosure-card > summary {
+    padding-bottom: 0;
+    border-bottom: 0;
+    cursor: pointer;
+    list-style: none;
+}
+
+.disclosure-card > summary::-webkit-details-marker {
+    display: none;
+}
+
+.disclosure-card[open] > summary {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--cantus-border);
+}
+
+.disclosure-chevron {
+    color: var(--cantus-muted);
+    transition: transform 160ms ease;
+}
+
+.disclosure-card[open] .disclosure-chevron {
+    transform: rotate(180deg);
+}
+
+.song-score-viewer {
+    overflow: hidden;
+}
+
+.score-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 16px 0;
+}
+
+.score-viewer-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+}
+
+.score-viewer-toolbar > div {
+    display: grid;
+    min-width: 0;
+    margin-right: auto;
+}
+
+.score-viewer-toolbar strong,
+.score-viewer-toolbar small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.score-viewer-toolbar small {
+    color: var(--cantus-muted);
+    font-size: 0.74rem;
+}
+
+.song-score-viewer iframe {
+    width: 100%;
+    height: 620px;
+    border: 1px solid var(--cantus-border);
+    border-radius: 10px;
+    background: #eceef2;
+}
+
+.score-viewer-empty {
+    display: grid;
+    min-height: 180px;
+    place-items: center;
+    align-content: center;
+    gap: 8px;
+    color: var(--cantus-muted);
+    text-align: center;
+}
+
+.score-viewer-empty > i {
+    color: var(--cantus-primary);
+    font-size: 2rem;
+}
+
+.score-viewer-empty p {
+    margin: 0;
+}
+
+.song-musicxml-preview {
+    min-height: 460px;
+    border: 1px solid var(--cantus-border);
+    border-radius: 10px;
+}
+
 .detail-stack {
     display: grid;
     align-content: start;
@@ -1444,7 +1703,8 @@ a.sidebar-link:hover {
     text-align: center;
 }
 
-.file-drop:hover {
+.file-drop:hover,
+.file-drop.drag-active {
     border-color: #a79fed;
     color: var(--cantus-primary);
     background: #faf9ff;
@@ -1667,6 +1927,18 @@ a.sidebar-link:hover {
 
     .detail-grid {
         grid-template-columns: 1fr;
+    }
+
+    .composer-management-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .composer-editor {
+        position: static;
+    }
+
+    .song-score-viewer iframe {
+        height: 480px;
     }
 
     .score-detail-grid,

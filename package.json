@@ -12,6 +12,8 @@
     "test": "npm run test --workspace @cantus/backend",
     "db:migrate": "npm run db:migrate --workspace @cantus/backend",
     "db:deploy": "npm run db:deploy --workspace @cantus/backend",
+    "db:import-repertoire": "npm run db:import-repertoire --workspace @cantus/backend",
+    "db:import-plans": "npm run db:import-plans --workspace @cantus/backend",
     "postinstall": "npm run db:generate --workspace @cantus/backend"
   },
   "engines": {

@@ -2,8 +2,8 @@ import { Router } from "express";
 import {
     createSong,
     deleteSong,
+    permanentlyDeleteSong,
     getAllSongs,
-    getSongFacets,
     getSongById,
     restoreSong,
     updateSong
@@ -20,12 +20,12 @@ const router = Router();
 
 router.get("/", validateSongQuery, getAllSongs);
 router.post("/", validateSong, createSong);
-router.get("/meta/facets", getSongFacets);
 router.post("/:id/import", uploadSongDocument, importSongFile);
 router.get("/:id/attachments/:attachmentId/download", downloadSongAttachment);
 router.patch("/:id/restore", restoreSong);
 router.get("/:id", getSongById);
 router.put("/:id", validateSong, updateSong);
+router.delete("/:id/permanent", permanentlyDeleteSong);
 router.delete("/:id", deleteSong);
 
 export default router;

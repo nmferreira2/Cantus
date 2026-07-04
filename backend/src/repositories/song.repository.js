@@ -5,6 +5,11 @@ const tagLinks = {
     include: { tag: true }
 };
 
+const typeAssignments = {
+    orderBy: { type: "asc" },
+    select: { type: true }
+};
+
 const listSelection = {
     id: true,
     title: true,
@@ -13,13 +18,13 @@ const listSelection = {
     arrangerName: true,
     harmonizerName: true,
     originalKey: true,
-    songType: true,
     language: true,
     active: true,
     createdAt: true,
     updatedAt: true,
     deletedAt: true,
     tagLinks,
+    types: typeAssignments,
     _count: {
         select: {
             attachments: {
@@ -31,9 +36,52 @@ const listSelection = {
 
 const detailRelations = {
     tagLinks,
+    types: typeAssignments,
     attachments: {
         where: { deletedAt: null },
         orderBy: { createdAt: "desc" }
+    },
+    scores: {
+        where: { deletedAt: null },
+        orderBy: { updatedAt: "desc" },
+        select: {
+            id: true,
+            title: true,
+            format: true,
+            updatedAt: true,
+            versions: {
+                orderBy: { versionNumber: "desc" },
+                take: 1,
+                select: {
+                    id: true,
+                    versionNumber: true,
+                    originalName: true
+                }
+            },
+            _count: {
+                select: { versions: true }
+            }
+        }
+    },
+    massSongs: {
+        where: {
+            mass: { deletedAt: null }
+        },
+        include: {
+            mass: {
+                select: {
+                    id: true,
+                    startsAt: true,
+                    church: true,
+                    celebration: {
+                        select: { name: true }
+                    },
+                    season: {
+                        select: { name: true }
+                    }
+                }
+            }
+        }
     }
 };
 
@@ -56,8 +104,9 @@ export async function getAllSongs(query) {
     ]);
 
     return {
-        data: songs.map(({ _count, tagLinks: links, ...song }) => ({
+        data: songs.map(({ _count, tagLinks: links, types, ...song }) => ({
             ...song,
+            songTypes: types.map(({ type }) => type),
             tags: links.map(({ tag }) => tag),
             attachmentCount: _count.attachments
         })),
@@ -81,27 +130,66 @@ export async function getSongIncludingArchived(id) {
     return presentSong(song);
 }
 
-export async function getSongByTitle(title, excludedId) {
+export function getSongDeletionData(id) {
+    return prisma.song.findUnique({
+        where: { id },
+        select: {
+            id: true,
+            deletedAt: true,
+            attachments: {
+                select: { relativePath: true }
+            },
+            scores: {
+                select: {
+                    versions: {
+                        select: { relativePath: true }
+                    }
+                }
+            }
+        }
+    });
+}
+
+export async function getSongByIdentity(
+    title,
+    composerName,
+    arrangerName,
+    excludedId
+) {
     const candidates = await prisma.song.findMany({
         where: {
             deletedAt: null,
             title: { contains: title },
             ...(excludedId ? { id: { not: excludedId } } : {})
         },
-        select: { id: true, title: true }
+        select: {
+            id: true,
+            title: true,
+            composerName: true,
+            arrangerName: true
+        }
     });
     const normalizedTitle = title.toLocaleLowerCase();
+    const normalizedComposer = composerName.toLocaleLowerCase();
+    const normalizedArranger = (arrangerName ?? "").toLocaleLowerCase();
     return candidates.find(
-        (song) => song.title.toLocaleLowerCase() === normalizedTitle
+        (song) => (
+            song.title.toLocaleLowerCase() === normalizedTitle
+            && song.composerName.toLocaleLowerCase() === normalizedComposer
+            && (song.arrangerName ?? "").toLocaleLowerCase() === normalizedArranger
+        )
     ) ?? null;
 }
 
-export async function createSong(data, tagIds) {
+export async function createSong(data, tagIds, songTypes) {
     const song = await prisma.song.create({
         data: {
             ...data,
             tagLinks: {
                 create: tagIds.map((tagId) => ({ tagId }))
+            },
+            types: {
+                create: songTypes.map((type) => ({ type }))
             }
         },
         include: detailRelations
@@ -109,7 +197,7 @@ export async function createSong(data, tagIds) {
     return presentSong(song);
 }
 
-export async function updateSong(id, data, tagIds) {
+export async function updateSong(id, data, tagIds, songTypes) {
     const song = await prisma.song.update({
         where: { id },
         data: {
@@ -117,6 +205,10 @@ export async function updateSong(id, data, tagIds) {
             tagLinks: {
                 deleteMany: {},
                 create: tagIds.map((tagId) => ({ tagId }))
+            },
+            types: {
+                deleteMany: {},
+                create: songTypes.map((type) => ({ type }))
             }
         },
         include: detailRelations
@@ -140,14 +232,12 @@ export async function restoreSong(id) {
     return presentSong(song);
 }
 
-export async function getSongFacets() {
-    const languages = await prisma.song.findMany({
-        where: { deletedAt: null, language: { not: null } },
-        distinct: ["language"],
-        select: { language: true },
-        orderBy: { language: "asc" }
-    });
-    return { languages: languages.map(({ language }) => language).filter(Boolean) };
+export function hardDeleteSong(id) {
+    return prisma.$transaction([
+        prisma.massSong.deleteMany({ where: { songId: id } }),
+        prisma.score.deleteMany({ where: { songId: id } }),
+        prisma.song.delete({ where: { id } })
+    ]);
 }
 
 function buildSongWhere(query) {
@@ -156,7 +246,7 @@ function buildSongWhere(query) {
         deletedAt: archived ? { not: null } : null,
         ...(query.status === "active" ? { active: true } : {}),
         ...(query.status === "inactive" ? { active: false } : {}),
-        ...(query.songType ? { songType: query.songType } : {}),
+        ...(query.songType ? { types: { some: { type: query.songType } } } : {}),
         ...(query.language ? { language: query.language } : {}),
         ...(query.tagId ? { tagLinks: { some: { tagId: query.tagId } } } : {}),
         ...(query.search
@@ -179,9 +269,33 @@ function presentSong(song) {
     if (!song) {
         return null;
     }
-    const { tagLinks: links, ...data } = song;
+    const {
+        tagLinks: links,
+        types,
+        massSongs = [],
+        scores = [],
+        ...data
+    } = song;
     return {
         ...data,
-        tags: links.map(({ tag }) => tag)
+        songTypes: types.map(({ type }) => type),
+        tags: links.map(({ tag }) => tag),
+        scores: scores.map(({ _count, versions, ...score }) => ({
+            ...score,
+            versionCount: _count.versions,
+            latestVersion: versions[0] ?? null
+        })),
+        history: massSongs
+            .map(({ slot, mass }) => ({
+                massId: mass.id,
+                slot,
+                startsAt: mass.startsAt,
+                church: mass.church,
+                celebration: mass.celebration,
+                season: mass.season
+            }))
+            .sort((first, second) => (
+                new Date(second.startsAt) - new Date(first.startsAt)
+            ))
     };
 }
