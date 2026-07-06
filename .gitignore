@@ -8,3 +8,4 @@ coverage/
 npm-debug.log*
 backend/storage/*
 !backend/storage/.gitkeep
+recovery/

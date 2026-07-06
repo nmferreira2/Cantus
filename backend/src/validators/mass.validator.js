@@ -46,7 +46,8 @@ export function parseMass(payload) {
     if (!payload.startsAt || Number.isNaN(startsAt.getTime())) {
         errors.startsAt = "É necessária uma data e hora válidas.";
     }
-    const church = requiredText(payload.church, "church", 200, errors);
+    const church = optionalText(payload.church, "church", 200, errors)
+        ?? "S. Salvador de Fornelos";
     const active = payload.active ?? true;
     if (typeof active !== "boolean") {
         errors.active = "O estado ativo deve ser verdadeiro ou falso.";
@@ -57,6 +58,12 @@ export function parseMass(payload) {
         startsAt,
         church,
         celebrationId: optionalText(payload.celebrationId, "celebrationId", 100, errors),
+        celebrationName: optionalText(
+            payload.celebrationName,
+            "celebrationName",
+            200,
+            errors
+        ),
         seasonId: optionalText(payload.seasonId, "seasonId", 100, errors),
         presider: optionalText(payload.presider, "presider", 200, errors),
         choir: optionalText(payload.choir, "choir", 200, errors),
@@ -173,6 +180,7 @@ function fieldLabel(field) {
     return {
         church: "A igreja",
         celebrationId: "A celebração",
+        celebrationName: "A celebração",
         seasonId: "O tempo litúrgico",
         presider: "O presidente",
         choir: "O coro",

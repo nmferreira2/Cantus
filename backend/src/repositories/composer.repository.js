@@ -1,15 +1,30 @@
 import prisma from "../config/prisma.js";
 
 export async function findAll() {
-    const composers = await prisma.song.groupBy({
-        by: ["composerName"],
-        _count: { composerName: true },
-        orderBy: { composerName: "asc" }
+    const [composers, contributors] = await prisma.$transaction([
+        prisma.song.groupBy({
+            by: ["composerName"],
+            where: { deletedAt: null },
+            _count: { composerName: true },
+            orderBy: { composerName: "asc" }
+        }),
+        prisma.contributor.findMany({
+            where: { deletedAt: null },
+            orderBy: { createdAt: "asc" }
+        })
+    ]);
+    const profiles = new Map();
+    contributors.forEach((contributor) => {
+        for (const name of [contributor.displayName, contributor.name]) {
+            const key = normalize(name);
+            if (key && !profiles.has(key)) profiles.set(key, contributor);
+        }
     });
 
     return composers.map(({ composerName, _count }) => ({
         name: composerName,
-        songCount: _count.composerName
+        songCount: _count.composerName,
+        contributor: profiles.get(normalize(composerName)) ?? null
     }));
 }
 
@@ -47,9 +62,13 @@ export function mergeNames(sources, name) {
         const duplicateIds = contributors
             .filter(({ id }) => id !== target.id)
             .map(({ id }) => id);
-        const notes = [...new Set(
-            contributors.map(({ notes: value }) => value?.trim()).filter(Boolean)
-        )].join("\n\n") || null;
+        const notes = mergeText(contributors.map(({ notes }) => notes));
+        const biography = mergeText(
+            contributors.map(({ biography }) => biography)
+        );
+        const photoPath = target.photoPath
+            ?? contributors.find(({ photoPath: value }) => value)?.photoPath
+            ?? null;
 
         if (duplicateIds.length > 0) {
             await transaction.user.updateMany({
@@ -67,7 +86,9 @@ export function mergeNames(sources, name) {
                 name,
                 surname: null,
                 displayName: name,
-                notes
+                notes,
+                biography,
+                photoPath
             }
         });
         return result;
@@ -83,6 +104,25 @@ export function findContributorByName(name) {
                 { name }
             ]
         }
+    });
+}
+
+export function createComposerProfile(name, biography = null) {
+    return prisma.contributor.create({
+        data: {
+            name,
+            displayName: name,
+            role: "COMPOSER",
+            biography,
+            active: true
+        }
+    });
+}
+
+export function updateComposerProfile(id, data) {
+    return prisma.contributor.update({
+        where: { id },
+        data
     });
 }
 
@@ -107,4 +147,13 @@ export function findSongsByName(name) {
             active: true
         }
     });
+}
+
+function mergeText(values) {
+    return [...new Set(values.map((value) => value?.trim()).filter(Boolean))]
+        .join("\n\n") || null;
+}
+
+function normalize(value) {
+    return (value ?? "").trim().toLocaleLowerCase("pt-PT");
 }

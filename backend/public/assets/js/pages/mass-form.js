@@ -20,8 +20,8 @@ export function massFormPage(id = null) {
             <form id="mass-form" class="card-surface form-card" novalidate><div id="form-alert"></div><fieldset disabled>
                 <div class="form-section"><div><h3>Celebração</h3><p>Data, local e contexto litúrgico.</p></div><div class="form-grid">
                     ${inputField({ name: "startsAt", label: "Data e hora", type: "datetime-local", required: true })}
-                    ${inputField({ name: "church", label: "Igreja", required: true })}
-                    <div class="form-field"><label class="form-label" for="celebrationId">Celebração</label><select id="celebrationId" name="celebrationId" class="form-select"></select></div>
+                    ${inputField({ name: "church", label: "Igreja", placeholder: "S. Salvador de Fornelos" })}
+                    ${inputField({ name: "celebrationName", label: "Celebração", placeholder: "Ex.: Domingo VII do Tempo Comum" })}
                     <div class="form-field"><label class="form-label" for="seasonId">Tempo litúrgico</label><select id="seasonId" name="seasonId" class="form-select"></select></div>
                     ${inputField({ name: "presider", label: "Presidente" })}
                     ${inputField({ name: "choir", label: "Coro" })}
@@ -45,13 +45,13 @@ async function mount(id) {
             id ? getMass(id) : Promise.resolve(null)
         ]);
         fillOptions(form, references, songs);
-        if (mass) fillMass(form, mass);
+        if (mass) {
+            fillMass(form, mass);
+        } else {
+            form.elements.church.value = "S. Salvador de Fornelos";
+        }
         form.querySelector("fieldset").disabled = false;
     } catch (error) { showError(error.message); return; }
-    form.elements.celebrationId.addEventListener("change", () => {
-        const option = form.elements.celebrationId.selectedOptions[0];
-        if (option?.dataset.season) form.elements.seasonId.value = option.dataset.season;
-    });
     form.addEventListener("submit", async (event) => {
         event.preventDefault(); form.classList.add("was-validated"); if (!form.checkValidity()) return;
         const button = form.querySelector('button[type="submit"]'); toggle(button, true);
@@ -60,7 +60,7 @@ async function mount(id) {
             const data = {
                 startsAt: new Date(form.elements.startsAt.value).toISOString(),
                 church: form.elements.church.value,
-                celebrationId: form.elements.celebrationId.value,
+                celebrationName: form.elements.celebrationName.value,
                 seasonId: form.elements.seasonId.value,
                 presider: form.elements.presider.value,
                 choir: form.elements.choir.value,
@@ -76,7 +76,6 @@ async function mount(id) {
 }
 
 function fillOptions(form, references, songs) {
-    form.elements.celebrationId.innerHTML = `<option value="">Escolha a celebração</option>${references.celebrations.map((item) => `<option value="${escapeHtml(item.id)}" data-season="${escapeHtml(item.seasonId || "")}">${escapeHtml(item.name)}</option>`).join("")}`;
     form.elements.seasonId.innerHTML = `<option value="">Escolha o tempo</option>${references.seasons.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("")}`;
     const songOptions = `<option value="">Sem cântico selecionado</option>${songs.map((song) => {
         const credits = [
@@ -93,7 +92,8 @@ function fillOptions(form, references, songs) {
 function fillMass(form, mass) {
     const local = new Date(new Date(mass.startsAt).getTime() - new Date(mass.startsAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     form.elements.startsAt.value = local;
-    ["church", "celebrationId", "seasonId", "presider", "choir", "comments"].forEach((field) => { form.elements[field].value = mass[field] ?? ""; });
+    ["church", "seasonId", "presider", "choir", "comments"].forEach((field) => { form.elements[field].value = mass[field] ?? ""; });
+    form.elements.celebrationName.value = mass.celebration?.name ?? "";
     form.elements.active.checked = mass.active;
     mass.songs.forEach(({ slot, songId }) => { form.elements[`slot-${slot}`].value = songId; });
 }

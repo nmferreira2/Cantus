@@ -9,6 +9,39 @@ export function validateComposerMerge(req, res, next) {
     }
 }
 
+export function validateComposerProfile(req, res, next) {
+    try {
+        const payload = req.body ?? {};
+        const unsupported = Object.keys(payload).filter(
+            (field) => field !== "biography"
+        );
+        if (unsupported.length > 0) {
+            throw new AppError(400, "O pedido contém campos não suportados.", {
+                fields: unsupported
+            });
+        }
+        if (
+            payload.biography !== undefined
+            && payload.biography !== null
+            && typeof payload.biography !== "string"
+        ) {
+            throw new AppError(422, "A biografia deve ser texto.", {
+                biography: "A biografia deve ser texto."
+            });
+        }
+        const biography = payload.biography?.trim() || null;
+        if (biography && biography.length > 20_000) {
+            throw new AppError(422, "A biografia é demasiado longa.", {
+                biography: "A biografia deve ter no máximo 20 000 caracteres."
+            });
+        }
+        req.validatedBody = { biography };
+        return next();
+    } catch (error) {
+        return next(error);
+    }
+}
+
 export function parseComposerMerge(payload) {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
         throw new AppError(400, "O corpo do pedido deve ser um objeto JSON.");

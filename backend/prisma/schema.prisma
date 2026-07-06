@@ -123,6 +123,8 @@ model Contributor {
   email       String?
   phone       String?
   notes       String?
+  biography   String?
+  photoPath   String?
   active      Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

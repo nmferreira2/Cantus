@@ -101,6 +101,10 @@ test("Mass validation normalizes song slots and rejects unknown slots", () => {
     });
     assert.equal(mass.songs.length, 4);
     assert.ok(mass.startsAt instanceof Date);
+    assert.equal(
+        parseMass({ startsAt: "2026-12-25T10:00:00.000Z" }).church,
+        "S. Salvador de Fornelos"
+    );
     assert.throws(
         () => parseMass({
             startsAt: "2026-12-25T10:00:00.000Z",

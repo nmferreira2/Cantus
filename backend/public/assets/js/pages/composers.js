@@ -205,28 +205,28 @@ async function mountComposers() {
 
 function composerOption(composer, selected) {
     return `
-        <div class="composer-option">
+        <article class="composer-option">
             <input
-                class="form-check-input"
+                class="form-check-input composer-select"
                 type="checkbox"
                 data-composer-name="${escapeHtml(composer.name)}"
+                aria-label="Selecionar ${escapeHtml(composer.name)}"
                 ${selected ? "checked" : ""}
             >
-            <span>
-                <a href="/composers/${encodeURIComponent(composer.name)}" data-link>
+            <a href="/composers/${encodeURIComponent(composer.name)}" class="composer-card-link" data-link>
+                <span class="composer-avatar">
+                    ${composer.photoUrl
+                        ? `<img src="${escapeHtml(composer.photoUrl)}" alt="">`
+                        : '<i class="bi bi-person"></i>'}
+                </span>
+                <span class="composer-card-copy">
                     <strong>${escapeHtml(composer.name)}</strong>
-                </a>
-                <small>
-                    ${composer.songCount}
-                    ${composer.songCount === 1 ? "cântico" : "cânticos"}
-                </small>
-            </span>
-            <a
-                href="/composers/${encodeURIComponent(composer.name)}"
-                class="icon-button ms-auto"
-                title="Ver compositor"
-                data-link
-            ><i class="bi bi-chevron-right"></i></a>
-        </div>
+                    <small>
+                        ${composer.songCount}
+                        ${composer.songCount === 1 ? "cântico" : "cânticos"}
+                    </small>
+                </span>
+            </a>
+        </article>
     `;
 }

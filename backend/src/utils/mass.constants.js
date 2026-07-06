@@ -31,6 +31,7 @@ export const MASS_FIELDS = Object.freeze([
     "startsAt",
     "church",
     "celebrationId",
+    "celebrationName",
     "seasonId",
     "presider",
     "choir",

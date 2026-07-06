@@ -172,12 +172,9 @@ function slotLabel(slot) {
 
 async function validateReferences(payload) {
     const songIds = [...new Set(payload.songs.map(({ songId }) => songId))];
-    const [songCount, seasonCount, celebration] = await Promise.all([
+    const [songCount, seasonCount] = await Promise.all([
         songIds.length ? repository.countSongs(songIds) : Promise.resolve(0),
-        payload.seasonId ? repository.countSeason(payload.seasonId) : Promise.resolve(1),
-        payload.celebrationId
-            ? repository.findCelebration(payload.celebrationId)
-            : Promise.resolve(null)
+        payload.seasonId ? repository.countSeason(payload.seasonId) : Promise.resolve(1)
     ]);
 
     if (songCount !== songIds.length) {
@@ -186,12 +183,26 @@ async function validateReferences(payload) {
     if (seasonCount !== 1) {
         throw new AppError(422, "O tempo litúrgico selecionado não existe.");
     }
-    if (payload.celebrationId && !celebration) {
+    let celebration = payload.celebrationName
+        ? await repository.findCelebrationByName(payload.celebrationName)
+        : null;
+    if (!celebration && payload.celebrationId) {
+        celebration = await repository.findCelebration(payload.celebrationId);
+    }
+    if (payload.celebrationId && !payload.celebrationName && !celebration) {
         throw new AppError(422, "A celebração selecionada não existe.");
     }
+    if (!celebration && payload.celebrationName) {
+        celebration = await repository.createCelebration(
+            payload.celebrationName,
+            payload.seasonId
+        );
+    }
 
+    const { celebrationName, ...data } = payload;
     return {
-        ...payload,
+        ...data,
+        celebrationId: celebration?.id || null,
         seasonId: payload.seasonId || celebration?.seasonId || null
     };
 }

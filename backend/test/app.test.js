@@ -570,6 +570,119 @@ test("tag groups can be managed without losing song associations", async (contex
     assert.ok(archivedGroup.tags.some(({ id }) => id === tag.id));
 });
 
+test("new celebrations, default church and composer profiles are persisted", async (context) => {
+    const server = app.listen(0);
+    const created = {
+        songId: null,
+        contributorId: null,
+        massId: null,
+        celebrationId: null,
+        photoPath: null
+    };
+    context.after(async () => {
+        await new Promise((resolve) => server.close(resolve));
+        if (created.massId) {
+            await prisma.mass.deleteMany({ where: { id: created.massId } });
+        }
+        if (created.celebrationId) {
+            await prisma.celebration.deleteMany({
+                where: { id: created.celebrationId }
+            });
+        }
+        if (created.songId) {
+            await prisma.song.deleteMany({ where: { id: created.songId } });
+        }
+        if (created.contributorId) {
+            await prisma.contributor.deleteMany({
+                where: { id: created.contributorId }
+            });
+        }
+        if (created.photoPath) {
+            await fileRepository.removeFile(created.photoPath);
+        }
+    });
+
+    await new Promise((resolve) => server.once("listening", resolve));
+    const baseUrl = `http://127.0.0.1:${server.address().port}/api`;
+    const cookie = await loginCookie(baseUrl, "test-admin", "test-password");
+    const suffix = randomUUID();
+    const composerName = `Compositor com perfil ${suffix}`;
+
+    const songResponse = await fetch(`${baseUrl}/songs`, {
+        method: "POST",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({
+            title: `Cântico para perfil ${suffix}`,
+            composerName,
+            songTypes: ["OTHER"],
+            tagIds: [],
+            active: true
+        })
+    });
+    assert.equal(songResponse.status, 201);
+    created.songId = (await songResponse.json()).id;
+
+    const profileResponse = await fetch(
+        `${baseUrl}/composers/${encodeURIComponent(composerName)}/profile`,
+        {
+            method: "PUT",
+            headers: jsonHeaders(cookie),
+            body: JSON.stringify({ biography: "Uma pequena biografia." })
+        }
+    );
+    assert.equal(profileResponse.status, 200);
+    const profile = await profileResponse.json();
+    assert.equal(profile.contributor.biography, "Uma pequena biografia.");
+    created.contributorId = profile.contributor.id;
+
+    const photoBody = new FormData();
+    photoBody.append(
+        "file",
+        new Blob([samplePng()], { type: "image/png" }),
+        "compositor.png"
+    );
+    const photoResponse = await fetch(
+        `${baseUrl}/composers/${encodeURIComponent(composerName)}/photo`,
+        {
+            method: "POST",
+            headers: { Cookie: cookie },
+            body: photoBody
+        }
+    );
+    assert.equal(photoResponse.status, 200);
+    assert.ok((await photoResponse.json()).contributor.photoUrl);
+    const contributor = await prisma.contributor.findUnique({
+        where: { id: created.contributorId }
+    });
+    created.photoPath = contributor.photoPath;
+
+    const servedPhoto = await fetch(
+        `${baseUrl}/composers/${encodeURIComponent(composerName)}/photo`,
+        { headers: { Cookie: cookie } }
+    );
+    assert.equal(servedPhoto.status, 200);
+    assert.ok((await servedPhoto.arrayBuffer()).byteLength > 20);
+
+    const celebrationName = `Celebração temporária ${suffix}`;
+    const massResponse = await fetch(`${baseUrl}/masses`, {
+        method: "POST",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({
+            startsAt: "2027-01-01T10:00:00.000Z",
+            church: "",
+            celebrationName,
+            active: true,
+            songs: {}
+        })
+    });
+    assert.equal(massResponse.status, 201);
+    const mass = await massResponse.json();
+    created.massId = mass.id;
+    created.celebrationId = mass.celebration.id;
+    assert.equal(mass.church, "S. Salvador de Fornelos");
+    assert.equal(mass.celebration.name, celebrationName);
+});
+
 async function loginCookie(baseUrl, username, password) {
     const response = await fetch(`${baseUrl}/auth/login`, {
         method: "POST",
@@ -591,6 +704,13 @@ async function samplePdf() {
     const document = await PDFDocument.create();
     document.addPage([200, 200]);
     return document.save();
+}
+
+function samplePng() {
+    return Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "base64"
+    );
 }
 
 async function scoreForm(baseUrl, cookie, song, pdf, category) {

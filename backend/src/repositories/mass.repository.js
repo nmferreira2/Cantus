@@ -127,6 +127,25 @@ export function findCelebration(id) {
     return prisma.celebration.findUnique({ where: { id } });
 }
 
+export async function findCelebrationByName(name) {
+    const candidates = await prisma.celebration.findMany({
+        where: { name: { contains: name } }
+    });
+    const normalized = name.toLocaleLowerCase("pt-PT");
+    return candidates.find(
+        (celebration) => celebration.name.toLocaleLowerCase("pt-PT") === normalized
+    ) ?? null;
+}
+
+export function createCelebration(name, seasonId) {
+    return prisma.celebration.create({
+        data: {
+            name,
+            seasonId: seasonId || null
+        }
+    });
+}
+
 export function create(data, songs) {
     return prisma.mass.create({
         data: {

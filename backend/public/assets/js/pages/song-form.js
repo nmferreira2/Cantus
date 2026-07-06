@@ -4,6 +4,7 @@ import {
     updateSong
 } from "../api/songs.api.js";
 import { ApiError } from "../api/client.js";
+import { getComposers } from "../api/composers.api.js";
 import { createTag, getTags } from "../api/tags.api.js";
 import { getTagGroups } from "../api/tag-groups.api.js";
 import {
@@ -51,7 +52,23 @@ export function songFormPage(songId = null) {
                         <div class="form-grid">
                             ${inputField({ name: "title", label: "Título", required: true, requiredFeedback: "O título é obrigatório." })}
                             ${inputField({ name: "subtitle", label: "Subtítulo" })}
-                            ${inputField({ name: "composerName", label: "Compositor", required: true, requiredFeedback: "O compositor é obrigatório." })}
+                            <div class="form-field">
+                                <label class="form-label" for="composerName">
+                                    Compositor <span aria-hidden="true">*</span>
+                                </label>
+                                <input
+                                    class="form-control"
+                                    id="composerName"
+                                    name="composerName"
+                                    type="text"
+                                    list="composer-options"
+                                    autocomplete="off"
+                                    required
+                                    placeholder="Escolha ou escreva um compositor"
+                                >
+                                <datalist id="composer-options"></datalist>
+                                <div class="invalid-feedback">O compositor é obrigatório.</div>
+                            </div>
                             ${inputField({ name: "arrangerName", label: "Arranjo" })}
                             ${inputField({ name: "harmonizerName", label: "Harmonização" })}
                             ${inputField({
@@ -157,11 +174,15 @@ async function mountSongForm(songId) {
     const fieldset = form.querySelector("fieldset");
 
     try {
-        const [tags, tagGroups, song] = await Promise.all([
+        const [tags, tagGroups, composers, song] = await Promise.all([
             getTags(),
             getTagGroups(),
+            getComposers(),
             songId ? getSong(songId) : Promise.resolve(null)
         ]);
+        document.querySelector("#composer-options").innerHTML = composers.map(
+            ({ name }) => `<option value="${escapeHtml(name)}"></option>`
+        ).join("");
         renderTags(tags, song?.tags.map((tag) => tag.id) ?? []);
         bindTagCreation(tags, tagGroups);
 
@@ -195,7 +216,9 @@ async function mountSongForm(songId) {
                 : await createSong(data);
 
             setFlash(songId ? "Cântico atualizado com sucesso." : "Cântico adicionado com sucesso.");
-            router.navigate(songId ? `/songs/${encodeURIComponent(song.id)}` : "/songs");
+            router.navigate(songId
+                ? `/songs/${encodeURIComponent(song.id)}`
+                : `/scores/new?songId=${encodeURIComponent(song.id)}`);
         } catch (error) {
             if (error instanceof ApiError) {
                 showValidationErrors(form, error.details);
