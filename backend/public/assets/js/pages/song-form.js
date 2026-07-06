@@ -5,6 +5,7 @@ import {
 } from "../api/songs.api.js";
 import { ApiError } from "../api/client.js";
 import { createTag, getTags } from "../api/tags.api.js";
+import { getTagGroups } from "../api/tag-groups.api.js";
 import {
     inputField,
     textareaField
@@ -13,7 +14,7 @@ import { setFlash, showToast } from "../components/toast.js";
 import { loadingState } from "../components/ui.js";
 import { router } from "../router.js";
 import { escapeHtml, SONG_TYPES } from "../utils/format.js";
-import { groupTags, TAG_GROUP_LABELS } from "../utils/tags.js";
+import { groupTags } from "../utils/tags.js";
 
 export function songFormPage(songId = null) {
     const editing = Boolean(songId);
@@ -111,6 +112,11 @@ export function songFormPage(songId = null) {
                                     placeholder="Nome da nova tag"
                                     aria-label="Nome da nova tag"
                                 >
+                                <select
+                                    id="new-tag-group"
+                                    class="form-select"
+                                    aria-label="Grupo da nova tag"
+                                ></select>
                                 <button id="add-new-tag" class="btn btn-light" type="button">
                                     <i class="bi bi-plus-lg"></i> Adicionar nova tag
                                 </button>
@@ -151,12 +157,13 @@ async function mountSongForm(songId) {
     const fieldset = form.querySelector("fieldset");
 
     try {
-        const [tags, song] = await Promise.all([
+        const [tags, tagGroups, song] = await Promise.all([
             getTags(),
+            getTagGroups(),
             songId ? getSong(songId) : Promise.resolve(null)
         ]);
         renderTags(tags, song?.tags.map((tag) => tag.id) ?? []);
-        bindTagCreation(tags);
+        bindTagCreation(tags, tagGroups);
 
         if (song) {
             populateForm(form, song);
@@ -216,10 +223,16 @@ function songTypeOptions() {
     }).join("");
 }
 
-function bindTagCreation(initialTags) {
+function bindTagCreation(initialTags, tagGroups) {
     const tags = [...initialTags];
     const input = document.querySelector("#new-tag-name");
+    const groupSelect = document.querySelector("#new-tag-group");
     const button = document.querySelector("#add-new-tag");
+    groupSelect.innerHTML = tagGroups.map((group) => `
+        <option value="${escapeHtml(group.id)}">
+            ${escapeHtml(group.name)}
+        </option>
+    `).join("");
 
     button.addEventListener("click", async () => {
         const name = input.value.trim();
@@ -229,12 +242,19 @@ function bindTagCreation(initialTags) {
             return;
         }
 
-        const selectedIds = [...document.querySelectorAll('input[name="tagIds"]:checked')]
+        const selectedIds = [...document.querySelectorAll('input[name="tagIds"]')]
+            .filter((element) => element.type === "hidden" || element.checked)
             .map((element) => element.value);
         button.disabled = true;
 
         try {
-            const tag = await createTag({ name, category: "Personalizada" });
+            const tag = await createTag({
+                name,
+                groupId: groupSelect.value,
+                sortOrder: tags.filter(({ groupId }) => (
+                    groupId === groupSelect.value
+                )).length * 10
+            });
             tags.push(tag);
             selectedIds.push(tag.id);
             renderTags(tags, selectedIds);
@@ -258,10 +278,12 @@ function bindTagCreation(initialTags) {
 function renderTags(tags, selectedIds) {
     const target = document.querySelector("#tag-options");
     const groups = groupTags(tags);
+    const availableIds = new Set(tags.map(({ id }) => id));
+    const preservedIds = selectedIds.filter((id) => !availableIds.has(id));
 
     target.innerHTML = Object.entries(groups).map(([group, groupTags]) => `
         <fieldset class="tag-group">
-            <legend>${TAG_GROUP_LABELS[group] ?? group}</legend>
+            <legend>${escapeHtml(group)}</legend>
             <div class="tag-options">
                 ${groupTags.map((tag) => {
                     const id = `tag-${tag.id}`;
@@ -281,6 +303,8 @@ function renderTags(tags, selectedIds) {
                 }).join("")}
             </div>
         </fieldset>
+    `).join("") + preservedIds.map((id) => `
+        <input type="hidden" name="tagIds" value="${escapeHtml(id)}">
     `).join("");
 }
 

@@ -1,41 +1,85 @@
 import * as repository from "../repositories/tag.repository.js";
+import * as groupRepository from "../repositories/tag-group.repository.js";
 import { AppError } from "../utils/app-error.js";
+import { uniqueSlug } from "../utils/slug.js";
 
-export function getAllTags() {
-    return repository.getAllTags();
+export function getAllTags(filters) {
+    return repository.getAllTags(filters);
 }
 
 export async function createTag(data) {
-    const existing = await repository.findByName(data.name);
-    if (existing) {
-        throw new AppError(409, "Já existe uma tag com este nome.");
-    }
-
-    let slug = slugify(data.name);
-    if (!slug) {
-        slug = `tag-${Date.now()}`;
-    }
+    await ensureGroupExists(data.groupId);
+    await ensureUniqueName(data.name, data.groupId);
 
     try {
         return await repository.createTag({
             name: data.name,
-            category: data.category,
-            group: "CATEGORY",
-            slug: `${slug}-${Math.random().toString(36).slice(2, 8)}`
+            groupId: data.groupId,
+            sortOrder: data.sortOrder,
+            slug: uniqueSlug(data.name)
         });
     } catch (error) {
-        if (error.code === "P2002") {
-            throw new AppError(409, "Já existe uma tag com este nome.");
-        }
+        handleUniqueError(error);
         throw error;
     }
 }
 
-function slugify(value) {
-    return value
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLocaleLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
+export async function updateTag(id, data) {
+    const tag = await getTag(id);
+    const groupId = data.groupId ?? tag.groupId;
+    const name = data.name ?? tag.name;
+
+    if (data.groupId) {
+        await ensureGroupExists(data.groupId);
+    }
+    await ensureUniqueName(name, groupId, id);
+
+    try {
+        return await repository.updateTag(id, {
+            ...data,
+            ...(data.name ? { slug: uniqueSlug(data.name) } : {}),
+            ...(data.active === true ? { deletedAt: null } : {}),
+            ...(data.active === false ? { deletedAt: new Date() } : {})
+        });
+    } catch (error) {
+        handleUniqueError(error);
+        throw error;
+    }
+}
+
+export async function archiveTag(id) {
+    const tag = await getTag(id);
+    if (tag.deletedAt) {
+        throw new AppError(409, "A tag já está arquivada.");
+    }
+    return repository.archiveTag(id);
+}
+
+async function getTag(id) {
+    const tag = await repository.getTagById(id);
+    if (!tag) {
+        throw new AppError(404, "Tag não encontrada.");
+    }
+    return tag;
+}
+
+async function ensureGroupExists(id) {
+    const group = await groupRepository.getTagGroupById(id);
+    if (!group || group.deletedAt || !group.active) {
+        throw new AppError(422, "O grupo de tags selecionado não está disponível.", {
+            groupId: "Selecione um grupo ativo."
+        });
+    }
+}
+
+async function ensureUniqueName(name, groupId, excludedId) {
+    if (await repository.findByName(name, groupId, excludedId)) {
+        throw new AppError(409, "Já existe uma tag com este nome no grupo.");
+    }
+}
+
+function handleUniqueError(error) {
+    if (error.code === "P2002") {
+        throw new AppError(409, "Já existe uma tag com este nome no grupo.");
+    }
 }

@@ -69,6 +69,12 @@ export function sidebar(pathname) {
 function administrationLinks(pathname) {
     const links = [
         {
+            href: "/tag-management",
+            label: "Gestão de tags",
+            icon: "tags",
+            permission: PERMISSIONS.MANAGE_SETTINGS
+        },
+        {
             href: "/users",
             label: "Utilizadores",
             icon: "person-lock",

@@ -15,7 +15,7 @@ import { router } from "../router.js";
 import { escapeHtml, formatDate, songTypesLabel } from "../utils/format.js";
 import { bindFileDrop } from "../utils/file-drop.js";
 import { massSlotLabel } from "../utils/masses.js";
-import { groupTags, TAG_GROUP_LABELS } from "../utils/tags.js";
+import { groupTags } from "../utils/tags.js";
 import {
     can,
     canManageScoreForSong,
@@ -450,7 +450,7 @@ function tagContent(tags) {
         <div class="detail-tag-groups">
             ${Object.entries(groups).map(([group, groupTags]) => `
                 <div>
-                    <h4>${TAG_GROUP_LABELS[group] ?? group}</h4>
+                    <h4>${escapeHtml(group)}</h4>
                     <div class="tag-options">
                         ${groupTags.map((tag) => (
                             `<span class="tag-option static">${escapeHtml(tag.name)}</span>`

@@ -45,7 +45,22 @@ export function requireOwnContributorOrPermission(permission) {
 export function requirePermissionForArchived(permission) {
     return (req, res, next) => {
         if (
-            req.query.status !== "archived"
+            !["archived", "inactiveOrArchived"].includes(req.query.status)
+            || hasPermission(req.user, permission)
+        ) {
+            return next();
+        }
+        return next(new AppError(
+            403,
+            "Não tem permissão para consultar o arquivo."
+        ));
+    };
+}
+
+export function requirePermissionForQueryFlag(permission, field) {
+    return (req, res, next) => {
+        if (
+            req.query[field] !== "true"
             || hasPermission(req.user, permission)
         ) {
             return next();

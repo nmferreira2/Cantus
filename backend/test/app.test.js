@@ -466,6 +466,110 @@ test("permissions, score categories, soft deletion and celebration PDF", async (
     assert.ok(archivedVersion.deletedAt instanceof Date);
 });
 
+test("tag groups can be managed without losing song associations", async (context) => {
+    const server = app.listen(0);
+    const created = { groupId: null, secondGroupId: null, tagId: null, songId: null };
+    context.after(async () => {
+        await new Promise((resolve) => server.close(resolve));
+        if (created.songId) {
+            await prisma.song.deleteMany({ where: { id: created.songId } });
+        }
+        if (created.tagId) {
+            await prisma.tag.deleteMany({ where: { id: created.tagId } });
+        }
+        await prisma.tagGroup.deleteMany({
+            where: {
+                id: {
+                    in: [created.groupId, created.secondGroupId].filter(Boolean)
+                }
+            }
+        });
+    });
+
+    await new Promise((resolve) => server.once("listening", resolve));
+    const baseUrl = `http://127.0.0.1:${server.address().port}/api`;
+    const cookie = await loginCookie(baseUrl, "test-admin", "test-password");
+    const suffix = randomUUID();
+
+    const groupResponse = await fetch(`${baseUrl}/tag-groups`, {
+        method: "POST",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({ name: `Grupo temporário ${suffix}`, sortOrder: 900 })
+    });
+    assert.equal(groupResponse.status, 201);
+    const group = await groupResponse.json();
+    created.groupId = group.id;
+
+    const secondGroupResponse = await fetch(`${baseUrl}/tag-groups`, {
+        method: "POST",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({ name: `Segundo grupo ${suffix}`, sortOrder: 910 })
+    });
+    assert.equal(secondGroupResponse.status, 201);
+    const secondGroup = await secondGroupResponse.json();
+    created.secondGroupId = secondGroup.id;
+
+    const tagResponse = await fetch(`${baseUrl}/tags`, {
+        method: "POST",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({
+            name: `Tag temporária ${suffix}`,
+            groupId: group.id,
+            sortOrder: 10
+        })
+    });
+    assert.equal(tagResponse.status, 201);
+    const tag = await tagResponse.json();
+    created.tagId = tag.id;
+
+    const movedTagResponse = await fetch(`${baseUrl}/tags/${tag.id}`, {
+        method: "PUT",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({ groupId: secondGroup.id, sortOrder: 20 })
+    });
+    assert.equal(movedTagResponse.status, 200);
+    assert.equal((await movedTagResponse.json()).groupId, secondGroup.id);
+
+    const songResponse = await fetch(`${baseUrl}/songs`, {
+        method: "POST",
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({
+            title: `Cântico com tag arquivada ${suffix}`,
+            composerName: `Compositor ${suffix}`,
+            songTypes: ["OTHER"],
+            tagIds: [tag.id],
+            active: true
+        })
+    });
+    assert.equal(songResponse.status, 201);
+    const song = await songResponse.json();
+    created.songId = song.id;
+
+    const archiveResponse = await fetch(
+        `${baseUrl}/tag-groups/${secondGroup.id}`,
+        { method: "DELETE", headers: { Cookie: cookie } }
+    );
+    assert.equal(archiveResponse.status, 204);
+
+    const selectableTags = await fetch(`${baseUrl}/tags`, {
+        headers: { Cookie: cookie }
+    }).then((response) => response.json());
+    assert.ok(!selectableTags.some(({ id }) => id === tag.id));
+
+    const persistedSong = await fetch(`${baseUrl}/songs/${song.id}`, {
+        headers: { Cookie: cookie }
+    }).then((response) => response.json());
+    assert.ok(persistedSong.tags.some(({ id }) => id === tag.id));
+
+    const archivedGroups = await fetch(
+        `${baseUrl}/tag-groups?includeArchived=true`,
+        { headers: { Cookie: cookie } }
+    ).then((response) => response.json());
+    const archivedGroup = archivedGroups.find(({ id }) => id === secondGroup.id);
+    assert.ok(archivedGroup.deletedAt);
+    assert.ok(archivedGroup.tags.some(({ id }) => id === tag.id));
+});
+
 async function loginCookie(baseUrl, username, password) {
     const response = await fetch(`${baseUrl}/auth/login`, {
         method: "POST",

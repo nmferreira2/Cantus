@@ -5,15 +5,25 @@ export async function getStatistics() {
     from.setUTCMonth(from.getUTCMonth() - 11, 1);
     from.setUTCHours(0, 0, 0, 0);
 
-    const [overview, byType, byLiturgicalTime, massDates, mostUsed, recent] =
-        await Promise.all([
-            repository.getOverviewCounts(),
-            repository.getSongsByType(),
-            repository.getSongsByLiturgicalTime(),
-            repository.getMassDates(from),
-            repository.getMostUsedSongs(),
-            repository.getRecentlyAddedSongs()
-        ]);
+    const [
+        overview,
+        byType,
+        byLiturgicalTime,
+        massDates,
+        mostUsed,
+        recent,
+        leastRecentlyUsed,
+        nextMass
+    ] = await Promise.all([
+        repository.getOverviewCounts(),
+        repository.getSongsByType(),
+        repository.getSongsByLiturgicalTime(),
+        repository.getMassDates(from),
+        repository.getMostUsedSongs(),
+        repository.getRecentlyAddedSongs(),
+        repository.getLeastRecentlyUsedSongs(),
+        repository.getNextMass()
+    ]);
 
     return {
         overview,
@@ -26,7 +36,18 @@ export async function getStatistics() {
             massesPerMonth: massesPerMonth(massDates, from)
         },
         mostUsedSongs: mostUsed.map(presentSongTypes),
-        recentlyAddedSongs: recent.map(presentSongTypes)
+        recentlyAddedSongs: recent.map(presentSongTypes),
+        leastRecentlyUsedSongs: leastRecentlyUsed.map(presentSongTypes),
+        nextMass: nextMass
+            ? {
+                id: nextMass.id,
+                startsAt: nextMass.startsAt,
+                church: nextMass.church,
+                celebration: nextMass.celebration,
+                season: nextMass.season,
+                songCount: nextMass._count.songs
+            }
+            : null
     };
 }
 

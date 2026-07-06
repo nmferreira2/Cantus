@@ -29,12 +29,6 @@ enum SongType {
   OTHER
 }
 
-enum TagGroup {
-  LITURGICAL_SEASON
-  OCCASION
-  CATEGORY
-}
-
 enum SongAttachmentType {
   PDF
   TEXT
@@ -271,17 +265,35 @@ model AppSetting {
   updatedAt        DateTime @updatedAt
 }
 
+model TagGroup {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  sortOrder Int       @default(0)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  tags      Tag[]
+
+  @@index([deletedAt, sortOrder, name])
+}
+
 model Tag {
   id        String    @id @default(uuid())
   name      String
   slug      String    @unique
-  group     TagGroup  @default(CATEGORY)
-  category  String?
+  groupId   String
+  sortOrder Int       @default(0)
+  active    Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  group     TagGroup  @relation(fields: [groupId], references: [id])
   songLinks SongTag[]
 
-  @@index([group, name])
+  @@unique([groupId, name])
+  @@index([groupId, deletedAt, sortOrder, name])
 }
 
 model SongTag {

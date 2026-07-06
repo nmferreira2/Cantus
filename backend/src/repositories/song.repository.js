@@ -2,7 +2,22 @@ import prisma from "../config/prisma.js";
 
 const tagLinks = {
     orderBy: { tag: { name: "asc" } },
-    include: { tag: true }
+    include: {
+        tag: {
+            include: {
+                group: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        sortOrder: true,
+                        active: true,
+                        deletedAt: true
+                    }
+                }
+            }
+        }
+    }
 };
 
 const typeAssignments = {
@@ -249,6 +264,32 @@ export function hardDeleteSong(id) {
 
 function buildSongWhere(query) {
     const archived = query.status === "archived";
+    if (query.status === "inactiveOrArchived") {
+        return {
+            OR: [
+                { deletedAt: { not: null } },
+                { deletedAt: null, active: false }
+            ],
+            ...(query.songType ? { types: { some: { type: query.songType } } } : {}),
+            ...(query.language ? { language: query.language } : {}),
+            ...(query.tagId ? { tagLinks: { some: { tagId: query.tagId } } } : {}),
+            ...(query.search
+                ? {
+                    AND: [{
+                        OR: [
+                            { title: { contains: query.search } },
+                            { subtitle: { contains: query.search } },
+                            { composerName: { contains: query.search } },
+                            { arrangerName: { contains: query.search } },
+                            { harmonizerName: { contains: query.search } },
+                            { language: { contains: query.search } },
+                            { notes: { contains: query.search } }
+                        ]
+                    }]
+                }
+                : {})
+        };
+    }
     return {
         deletedAt: archived ? { not: null } : null,
         ...(query.status === "active" ? { active: true } : {}),

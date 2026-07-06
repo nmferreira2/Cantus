@@ -9,6 +9,11 @@ export function settingsPage() {
         title: "Definições",
         render: () => `
             <section class="page-heading"><div><p class="eyebrow">Administração</p><h2>Definições</h2><p class="page-description">Identidade da aplicação, informação da igreja e valores predefinidos.</p></div></section>
+            <a href="/tag-management" class="settings-admin-link card-surface" data-link>
+                <span class="card-heading-icon"><i class="bi bi-tags"></i></span>
+                <span><strong>Gestão de tags</strong><small>Crie grupos, organize tags e arquive opções antigas.</small></span>
+                <i class="bi bi-arrow-right"></i>
+            </a>
             <form id="settings-form" class="card-surface form-card"><div id="form-alert"></div><fieldset disabled>
                 <div class="form-section"><div><h3>Identidade da aplicação</h3><p>Personalize a identidade mantendo o estilo visual do Cantus.</p></div><div class="form-grid">
                     ${inputField({ name: "applicationName", label: "Nome da aplicação", required: true })}
@@ -68,7 +73,7 @@ async function mount() {
 
 function renderLogo(url) {
     const target = document.querySelector("#settings-logo-preview");
-    target.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="Application logo">` : '<i class="bi bi-music-note-beamed"></i>';
+    target.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="Logótipo da aplicação">` : '<i class="bi bi-music-note-beamed"></i>';
 }
 function showError(message) { const target = document.querySelector("#form-alert"); target.innerHTML = '<div class="alert alert-danger"></div>'; target.firstElementChild.textContent = message; }
 function toggle(button, loading) { button.disabled = loading; button.querySelector(".button-label").classList.toggle("d-none", loading); button.querySelector(".spinner-border").classList.toggle("d-none", !loading); }

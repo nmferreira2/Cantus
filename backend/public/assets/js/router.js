@@ -18,6 +18,7 @@ import { songDetailsPage } from "./pages/song-details.js";
 import { songFormPage } from "./pages/song-form.js";
 import { songsPage } from "./pages/songs.js";
 import { statisticsPage } from "./pages/statistics.js";
+import { tagManagementPage } from "./pages/tag-management.js";
 import { usersPage } from "./pages/users.js";
 import { applyApplicationSettings } from "./utils/settings.js";
 import { can, PERMISSIONS } from "./utils/permissions.js";
@@ -112,6 +113,11 @@ const routes = [
     {
         pattern: /^\/settings$/,
         page: settingsPage,
+        permission: PERMISSIONS.MANAGE_SETTINGS
+    },
+    {
+        pattern: /^\/tag-management$/,
+        page: tagManagementPage,
         permission: PERMISSIONS.MANAGE_SETTINGS
     }
 ];

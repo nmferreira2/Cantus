@@ -8,24 +8,31 @@ export async function getOverviewCounts() {
         masses,
         songUploads,
         scoreUploads,
-        inactiveSongs
+        inactiveSongs,
+        archivedSongs
     ] = await prisma.$transaction([
         prisma.song.count({ where: { deletedAt: null } }),
-        prisma.contributor.count({ where: { deletedAt: null } }),
+        prisma.song.groupBy({
+            by: ["composerName"],
+            where: { deletedAt: null }
+        }),
         prisma.score.count({ where: { deletedAt: null } }),
         prisma.mass.count({ where: { deletedAt: null } }),
         prisma.songAttachment.count({ where: { deletedAt: null } }),
-        prisma.scoreVersion.count(),
-        prisma.song.count({ where: { deletedAt: null, active: false } })
+        prisma.scoreVersion.count({ where: { deletedAt: null } }),
+        prisma.song.count({ where: { deletedAt: null, active: false } }),
+        prisma.song.count({ where: { deletedAt: { not: null } } })
     ]);
 
     return {
         songs,
-        contributors,
+        contributors: contributors.length,
         scores,
         masses,
         uploads: songUploads + scoreUploads,
-        inactiveSongs
+        inactiveSongs,
+        archivedSongs,
+        inactiveOrArchivedSongs: inactiveSongs + archivedSongs
     };
 }
 
@@ -40,7 +47,12 @@ export function getSongsByType() {
 
 export async function getSongsByLiturgicalTime() {
     const tags = await prisma.tag.findMany({
-        where: { category: "Tempo litúrgico" },
+        where: {
+            groupId: "tag-group-liturgical-season",
+            active: true,
+            deletedAt: null,
+            group: { active: true, deletedAt: null }
+        },
         select: {
             name: true,
             songLinks: {
@@ -56,7 +68,8 @@ export async function getSongsByLiturgicalTime() {
             value: songLinks.length
         }))
         .sort((first, second) => (
-            second.value - first.value || first.label.localeCompare(second.label, "pt")
+            second.value - first.value
+            || first.label.localeCompare(second.label, "pt")
         ));
 }
 
@@ -73,6 +86,7 @@ export function getMassDates(from) {
 export async function getMostUsedSongs(limit = 5) {
     const usage = await prisma.massSong.groupBy({
         by: ["songId"],
+        where: { mass: { deletedAt: null } },
         _count: { songId: true },
         orderBy: { _count: { songId: "desc" } },
         take: limit
@@ -108,6 +122,62 @@ export function getRecentlyAddedSongs(limit = 5) {
             title: true,
             types: { select: { type: true } },
             createdAt: true
+        }
+    });
+}
+
+export async function getLeastRecentlyUsedSongs(limit = 5) {
+    const songs = await prisma.song.findMany({
+        where: {
+            deletedAt: null,
+            active: true
+        },
+        select: {
+            id: true,
+            title: true,
+            types: { select: { type: true } },
+            massSongs: {
+                where: { mass: { deletedAt: null } },
+                orderBy: { mass: { startsAt: "desc" } },
+                take: 1,
+                select: {
+                    mass: { select: { startsAt: true } }
+                }
+            }
+        }
+    });
+
+    return songs
+        .map(({ massSongs, ...song }) => ({
+            ...song,
+            lastUsedAt: massSongs[0]?.mass.startsAt ?? null
+        }))
+        .sort((first, second) => {
+            if (!first.lastUsedAt && !second.lastUsedAt) {
+                return first.title.localeCompare(second.title, "pt");
+            }
+            if (!first.lastUsedAt) return -1;
+            if (!second.lastUsedAt) return 1;
+            return first.lastUsedAt - second.lastUsedAt;
+        })
+        .slice(0, limit);
+}
+
+export function getNextMass() {
+    return prisma.mass.findFirst({
+        where: {
+            deletedAt: null,
+            active: true,
+            startsAt: { gte: new Date() }
+        },
+        orderBy: { startsAt: "asc" },
+        select: {
+            id: true,
+            startsAt: true,
+            church: true,
+            celebration: { select: { name: true } },
+            season: { select: { name: true } },
+            _count: { select: { songs: true } }
         }
     });
 }

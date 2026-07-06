@@ -1,10 +1,10 @@
 import { AppError } from "../utils/app-error.js";
 
-export function validateTag(req, res, next) {
+export function validateTagGroup(req, res, next) {
     return validate(req, next, false);
 }
 
-export function validateTagUpdate(req, res, next) {
+export function validateTagGroupUpdate(req, res, next) {
     return validate(req, next, true);
 }
 
@@ -16,19 +16,11 @@ function validate(req, next, partial) {
 
         if (!partial || payload.name !== undefined) {
             if (typeof payload.name !== "string" || !payload.name.trim()) {
-                errors.name = "O nome da tag é obrigatório.";
+                errors.name = "O nome do grupo é obrigatório.";
             } else if (payload.name.trim().length > 100) {
-                errors.name = "O nome da tag deve ter no máximo 100 caracteres.";
+                errors.name = "O nome do grupo deve ter no máximo 100 caracteres.";
             } else {
                 result.name = payload.name.trim();
-            }
-        }
-
-        if (!partial || payload.groupId !== undefined) {
-            if (typeof payload.groupId !== "string" || !payload.groupId.trim()) {
-                errors.groupId = "O grupo da tag é obrigatório.";
-            } else {
-                result.groupId = payload.groupId.trim();
             }
         }
 
@@ -45,14 +37,18 @@ function validate(req, next, partial) {
 
         if (partial && payload.active !== undefined) {
             if (typeof payload.active !== "boolean") {
-                errors.active = "O estado da tag é inválido.";
+                errors.active = "O estado do grupo é inválido.";
             } else {
                 result.active = payload.active;
             }
         }
 
         if (Object.keys(errors).length > 0) {
-            throw new AppError(422, "Não foi possível validar a tag.", errors);
+            throw new AppError(
+                422,
+                "Não foi possível validar o grupo de tags.",
+                errors
+            );
         }
         if (partial && Object.keys(result).length === 0) {
             throw new AppError(422, "Indique pelo menos uma alteração.");

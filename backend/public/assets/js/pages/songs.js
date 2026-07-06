@@ -20,7 +20,7 @@ import {
     formatDate,
     SONG_TYPES
 } from "../utils/format.js";
-import { groupTags, TAG_GROUP_LABELS } from "../utils/tags.js";
+import { groupTags } from "../utils/tags.js";
 import { can, PERMISSIONS } from "../utils/permissions.js";
 
 const columns = [
@@ -72,7 +72,10 @@ export function songsPage() {
                             ["active", "Ativos"],
                             ["inactive", "Inativos"],
                             ...(can(PERMISSIONS.DELETE_SONGS)
-                                ? [["archived", "Arquivados"]]
+                                ? [
+                                    ["inactiveOrArchived", "Inativos e arquivados"],
+                                    ["archived", "Arquivados"]
+                                ]
                                 : [])
                         ])}
                         ${filterSelect("type-filter", "Tipo", [
@@ -251,8 +254,8 @@ function songRow(song) {
     const title = archived
         ? `<span class="song-title">${safeTitle}</span>`
         : `<a href="/songs/${encodedId}" class="song-title" data-link>${safeTitle}</a>`;
-    const times = song.tags.filter(({ category, group }) => (
-        category === "Tempo litúrgico" || group === "LITURGICAL_SEASON"
+    const times = song.tags.filter(({ group }) => (
+        group?.id === "tag-group-liturgical-season"
     ));
     const secondaryCredits = [
         song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
@@ -425,7 +428,7 @@ function readState() {
             ? sortBy
             : "title",
         sortOrder: ["asc", "desc"].includes(sortOrder) ? sortOrder : "asc",
-        status: ["current", "active", "inactive", "archived"].includes(status)
+        status: ["current", "active", "inactive", "inactiveOrArchived", "archived"].includes(status)
             ? status
             : "current",
         songType: SONG_TYPES.some(([value]) => value === songType) ? songType : "",
@@ -472,7 +475,7 @@ function populateTagSelect(select, tags, selectedValue) {
     select.insertAdjacentHTML(
         "beforeend",
         Object.entries(groups).map(([group, groupTags]) => `
-            <optgroup label="${TAG_GROUP_LABELS[group] ?? group}">
+            <optgroup label="${escapeHtml(group)}">
                 ${groupTags.map((tag) => (
                     `<option value="${escapeHtml(tag.id)}">${escapeHtml(tag.name)}</option>`
                 )).join("")}

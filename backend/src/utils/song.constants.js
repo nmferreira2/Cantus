@@ -41,5 +41,6 @@ export const SONG_STATUSES = Object.freeze([
     "current",
     "active",
     "inactive",
+    "inactiveOrArchived",
     "archived"
 ]);
