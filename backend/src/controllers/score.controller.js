@@ -10,17 +10,19 @@ export async function getScore(req, res) {
 
 export async function createScore(req, res) {
     return res.status(201).json(
-        await service.createScore(req.validatedBody, req.file)
+        await service.createScore(req.validatedBody, req.file, req.user)
     );
 }
 
 export async function updateScore(req, res) {
-    return res.json(await service.updateScore(req.params.id, req.validatedBody));
+    return res.json(
+        await service.updateScore(req.params.id, req.validatedBody, req.user)
+    );
 }
 
 export async function addScoreVersion(req, res) {
     return res.status(201).json(
-        await service.addScoreVersion(req.params.id, req.file)
+        await service.addScoreVersion(req.params.id, req.file, req.user)
     );
 }
 
@@ -47,10 +49,19 @@ export async function serveScoreVersion(req, res, next) {
 }
 
 export async function archiveScore(req, res) {
-    await service.archiveScore(req.params.id);
+    await service.archiveScore(req.params.id, req.user);
     return res.status(204).send();
 }
 
 export async function restoreScore(req, res) {
-    return res.json(await service.restoreScore(req.params.id));
+    return res.json(await service.restoreScore(req.params.id, req.user));
+}
+
+export async function archiveScoreVersion(req, res) {
+    await service.archiveScoreVersion(
+        req.params.id,
+        req.params.versionId,
+        req.user
+    );
+    return res.status(204).send();
 }

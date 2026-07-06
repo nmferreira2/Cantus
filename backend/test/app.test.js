@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { PDFDocument } from "pdf-lib";
 
 process.env.AUTH_USERNAME = "test-admin";
 process.env.AUTH_PASSWORD = "test-password";
 process.env.SESSION_SECRET = "test-session-secret-with-at-least-32-characters";
 
 const { default: app } = await import("../src/app.js");
+const { default: prisma } = await import("../src/config/prisma.js");
+const fileRepository = await import("../src/repositories/file.repository.js");
 
 test("health endpoint and API fallback return JSON", async (context) => {
     const server = app.listen(0);
@@ -45,7 +48,10 @@ test("health endpoint and API fallback return JSON", async (context) => {
         })
     });
     assert.equal(loginResponse.status, 200);
-    assert.deepEqual(await loginResponse.json(), { username: "test-admin" });
+    const loggedIn = await loginResponse.json();
+    assert.equal(loggedIn.username, "test-admin");
+    assert.equal(loggedIn.role, "ADMIN");
+    assert.ok(loggedIn.permissions.includes("MANAGE_USERS"));
     const cookie = loginResponse.headers.get("set-cookie").split(";")[0];
 
     const currentUserResponse = await fetch(
@@ -53,7 +59,9 @@ test("health endpoint and API fallback return JSON", async (context) => {
         { headers: { Cookie: cookie } }
     );
     assert.equal(currentUserResponse.status, 200);
-    assert.deepEqual(await currentUserResponse.json(), { username: "test-admin" });
+    const currentUser = await currentUserResponse.json();
+    assert.equal(currentUser.username, "test-admin");
+    assert.equal(currentUser.role, "ADMIN");
 
     const invalidSessionResponse = await fetch(
         `http://127.0.0.1:${port}/api/auth/me`,
@@ -193,6 +201,12 @@ test("tags API is available and songs require a composer", async (context) => {
     });
     assert.equal(mergeResponse.status, 200);
     assert.equal((await mergeResponse.json()).updatedSongs, 2);
+    const composerDetailResponse = await fetch(
+        `${baseUrl}/composers/${encodeURIComponent(canonicalComposer)}`,
+        { headers: { Cookie: cookie } }
+    );
+    assert.equal(composerDetailResponse.status, 200);
+    assert.equal((await composerDetailResponse.json()).songs.length, 2);
 
     const mergedSongResponse = await fetch(`${baseUrl}/songs/${song.id}`, {
         headers: { Cookie: cookie }
@@ -260,3 +274,231 @@ test("tags API is available and songs require a composer", async (context) => {
     );
     assert.equal(deleteSecondResponse.status, 204);
 });
+
+test("permissions, score categories, soft deletion and celebration PDF", async (context) => {
+    const server = app.listen(0);
+    const created = {
+        contributorId: null,
+        userId: null,
+        songId: null,
+        massId: null
+    };
+    context.after(async () => {
+        await new Promise((resolve) => server.close(resolve));
+        const scores = created.songId
+            ? await prisma.score.findMany({
+                where: { songId: created.songId },
+                include: { versions: true }
+            })
+            : [];
+        if (created.massId) {
+            await prisma.mass.deleteMany({ where: { id: created.massId } });
+        }
+        if (created.userId) {
+            await prisma.user.deleteMany({ where: { id: created.userId } });
+        }
+        if (created.songId) {
+            await prisma.score.deleteMany({ where: { songId: created.songId } });
+            await prisma.song.deleteMany({ where: { id: created.songId } });
+        }
+        if (created.contributorId) {
+            await prisma.contributor.deleteMany({
+                where: { id: created.contributorId }
+            });
+        }
+        await Promise.all(scores.flatMap(({ versions }) => (
+            versions.map(({ relativePath }) => (
+                fileRepository.removeFile(relativePath)
+            ))
+        )));
+    });
+
+    await new Promise((resolve) => server.once("listening", resolve));
+    const baseUrl = `http://127.0.0.1:${server.address().port}/api`;
+    const adminCookie = await loginCookie(baseUrl, "test-admin", "test-password");
+    const suffix = randomUUID();
+    const displayName = `Compositor restrito ${suffix}`;
+
+    const contributorResponse = await fetch(`${baseUrl}/contributors`, {
+        method: "POST",
+        headers: jsonHeaders(adminCookie),
+        body: JSON.stringify({
+            name: displayName,
+            displayName,
+            role: "COMPOSER",
+            active: true
+        })
+    });
+    assert.equal(contributorResponse.status, 201);
+    const contributor = await contributorResponse.json();
+    created.contributorId = contributor.id;
+
+    const songResponse = await fetch(`${baseUrl}/songs`, {
+        method: "POST",
+        headers: jsonHeaders(adminCookie),
+        body: JSON.stringify({
+            title: `Cântico de permissões ${suffix}`,
+            composerName: displayName,
+            songTypes: ["ENTRANCE"],
+            tagIds: [],
+            active: true
+        })
+    });
+    assert.equal(songResponse.status, 201);
+    const song = await songResponse.json();
+    created.songId = song.id;
+
+    const username = `utilizador-${suffix}`;
+    const password = "palavra-passe-segura";
+    const userResponse = await fetch(`${baseUrl}/users`, {
+        method: "POST",
+        headers: jsonHeaders(adminCookie),
+        body: JSON.stringify({
+            username,
+            password,
+            role: "CONTRIBUTOR",
+            contributorId: contributor.id,
+            allowScoreManagement: false,
+            active: true
+        })
+    });
+    assert.equal(userResponse.status, 201);
+    const user = await userResponse.json();
+    created.userId = user.id;
+
+    let restrictedCookie = await loginCookie(baseUrl, username, password);
+    assert.equal((await fetch(`${baseUrl}/songs`, {
+        headers: { Cookie: restrictedCookie }
+    })).status, 200);
+    const ownSongsResponse = await fetch(
+        `${baseUrl}/contributors/${contributor.id}/songs`,
+        { headers: { Cookie: restrictedCookie } }
+    );
+    assert.equal(ownSongsResponse.status, 200);
+    assert.ok((await ownSongsResponse.json()).some(({ id }) => id === song.id));
+    assert.equal((await fetch(`${baseUrl}/contributors`, {
+        headers: { Cookie: restrictedCookie }
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/songs/${song.id}`, {
+        method: "DELETE",
+        headers: { Cookie: restrictedCookie }
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/settings`, {
+        method: "PUT",
+        headers: jsonHeaders(restrictedCookie),
+        body: JSON.stringify({})
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/composers/merge`, {
+        method: "POST",
+        headers: jsonHeaders(restrictedCookie),
+        body: JSON.stringify({ sources: [displayName], name: displayName })
+    })).status, 403);
+
+    const forbiddenScore = await scoreForm(
+        baseUrl,
+        restrictedCookie,
+        song,
+        await samplePdf(),
+        "CHOIR"
+    );
+    assert.equal(forbiddenScore.status, 403);
+
+    const updateUserResponse = await fetch(`${baseUrl}/users/${user.id}`, {
+        method: "PUT",
+        headers: jsonHeaders(adminCookie),
+        body: JSON.stringify({
+            username,
+            role: "CONTRIBUTOR",
+            contributorId: contributor.id,
+            allowScoreManagement: true,
+            active: true
+        })
+    });
+    assert.equal(updateUserResponse.status, 200);
+    restrictedCookie = await loginCookie(baseUrl, username, password);
+
+    const scoreResponse = await scoreForm(
+        baseUrl,
+        restrictedCookie,
+        song,
+        await samplePdf(),
+        "CHOIR"
+    );
+    assert.equal(scoreResponse.status, 201);
+    const score = await scoreResponse.json();
+    assert.equal(score.category, "CHOIR");
+    assert.equal(score.versions.length, 1);
+
+    const massResponse = await fetch(`${baseUrl}/masses`, {
+        method: "POST",
+        headers: jsonHeaders(adminCookie),
+        body: JSON.stringify({
+            startsAt: "2026-12-25T10:00:00.000Z",
+            church: "Igreja de teste",
+            active: true,
+            songs: { ENTRANCE: song.id }
+        })
+    });
+    assert.equal(massResponse.status, 201);
+    const mass = await massResponse.json();
+    created.massId = mass.id;
+
+    const pdfResponse = await fetch(
+        `${baseUrl}/masses/${mass.id}/celebration-pdf`,
+        { headers: { Cookie: restrictedCookie } }
+    );
+    assert.equal(pdfResponse.status, 200);
+    assert.equal(pdfResponse.headers.get("content-type"), "application/pdf");
+    assert.ok((await pdfResponse.arrayBuffer()).byteLength > 100);
+
+    const deleteVersionResponse = await fetch(
+        `${baseUrl}/scores/${score.id}/versions/${score.versions[0].id}`,
+        { method: "DELETE", headers: { Cookie: restrictedCookie } }
+    );
+    assert.equal(deleteVersionResponse.status, 204);
+    const refreshedSong = await fetch(`${baseUrl}/songs/${song.id}`, {
+        headers: { Cookie: restrictedCookie }
+    });
+    assert.deepEqual((await refreshedSong.json()).scores, []);
+    const archivedVersion = await prisma.scoreVersion.findUnique({
+        where: { id: score.versions[0].id }
+    });
+    assert.ok(archivedVersion.deletedAt instanceof Date);
+});
+
+async function loginCookie(baseUrl, username, password) {
+    const response = await fetch(`${baseUrl}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+}
+
+function jsonHeaders(cookie) {
+    return {
+        "Content-Type": "application/json",
+        Cookie: cookie
+    };
+}
+
+async function samplePdf() {
+    const document = await PDFDocument.create();
+    document.addPage([200, 200]);
+    return document.save();
+}
+
+async function scoreForm(baseUrl, cookie, song, pdf, category) {
+    const body = new FormData();
+    body.append("songId", song.id);
+    body.append("title", song.title);
+    body.append("category", category);
+    body.append("active", "true");
+    body.append("file", new Blob([pdf], { type: "application/pdf" }), "partitura.pdf");
+    return fetch(`${baseUrl}/scores`, {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body
+    });
+}

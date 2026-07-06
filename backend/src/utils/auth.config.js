@@ -13,10 +13,12 @@ export function authenticateCredentials(username, password) {
         && safeEqual(password, config.password);
 }
 
-export function createSessionToken(username) {
+export function createSessionToken(user) {
     const config = getAuthConfig();
     const payload = Buffer.from(JSON.stringify({
-        sub: username,
+        sub: user.username,
+        uid: user.id ?? null,
+        role: user.role,
         exp: Math.floor(Date.now() / 1000) + SESSION_DURATION_SECONDS
     })).toString("base64url");
 
@@ -43,16 +45,21 @@ export function readSession(req) {
     try {
         const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
         if (
-            session.sub !== config.username
+            typeof session.sub !== "string"
+            || !["ADMIN", "CONTRIBUTOR"].includes(session.role)
             || !Number.isInteger(session.exp)
             || session.exp <= Math.floor(Date.now() / 1000)
         ) {
             return null;
         }
-        return { username: session.sub };
+        return session;
     } catch {
         return null;
     }
+}
+
+export function environmentAdminUsername() {
+    return getAuthConfig().username;
 }
 
 export function sessionCookie(token) {

@@ -1,5 +1,6 @@
 import { layout } from "./components/layout.js";
 import { composersPage } from "./pages/composers.js";
+import { composerDetailsPage } from "./pages/composer-details.js";
 import { contributorDetailsPage } from "./pages/contributor-details.js";
 import { contributorFormPage } from "./pages/contributor-form.js";
 import { contributorsPage } from "./pages/contributors.js";
@@ -17,46 +18,85 @@ import { songDetailsPage } from "./pages/song-details.js";
 import { songFormPage } from "./pages/song-form.js";
 import { songsPage } from "./pages/songs.js";
 import { statisticsPage } from "./pages/statistics.js";
+import { usersPage } from "./pages/users.js";
 import { applyApplicationSettings } from "./utils/settings.js";
+import { can, PERMISSIONS } from "./utils/permissions.js";
 
 const routes = [
     { pattern: /^\/$/, page: dashboardPage },
     { pattern: /^\/songs$/, page: songsPage },
-    { pattern: /^\/songs\/new$/, page: () => songFormPage() },
+    {
+        pattern: /^\/songs\/new$/,
+        page: () => songFormPage(),
+        permission: PERMISSIONS.MANAGE_SONGS
+    },
     {
         pattern: /^\/songs\/([^/]+)\/edit$/,
-        page: ([id]) => songFormPage(decodeURIComponent(id))
+        page: ([id]) => songFormPage(decodeURIComponent(id)),
+        permission: PERMISSIONS.MANAGE_SONGS
     },
     {
         pattern: /^\/songs\/([^/]+)$/,
         page: ([id]) => songDetailsPage(decodeURIComponent(id))
     },
-    { pattern: /^\/composers$/, page: composersPage },
-    { pattern: /^\/contributors$/, page: contributorsPage },
-    { pattern: /^\/contributors\/new$/, page: () => contributorFormPage() },
+    {
+        pattern: /^\/composers$/,
+        page: composersPage,
+        permission: PERMISSIONS.MANAGE_CONTRIBUTORS
+    },
+    {
+        pattern: /^\/composers\/([^/]+)$/,
+        page: ([name]) => composerDetailsPage(decodeURIComponent(name)),
+        permission: PERMISSIONS.MANAGE_CONTRIBUTORS
+    },
+    {
+        pattern: /^\/contributors$/,
+        page: contributorsPage,
+        permission: PERMISSIONS.MANAGE_CONTRIBUTORS
+    },
+    {
+        pattern: /^\/contributors\/new$/,
+        page: () => contributorFormPage(),
+        permission: PERMISSIONS.MANAGE_CONTRIBUTORS
+    },
     {
         pattern: /^\/contributors\/([^/]+)\/edit$/,
-        page: ([id]) => contributorFormPage(decodeURIComponent(id))
+        page: ([id]) => contributorFormPage(decodeURIComponent(id)),
+        permission: PERMISSIONS.MANAGE_CONTRIBUTORS
     },
     {
         pattern: /^\/contributors\/([^/]+)$/,
         page: ([id]) => contributorDetailsPage(decodeURIComponent(id))
     },
     { pattern: /^\/scores$/, page: scoresPage },
-    { pattern: /^\/scores\/new$/, page: () => scoreFormPage() },
+    {
+        pattern: /^\/scores\/new$/,
+        page: () => scoreFormPage(),
+        permission: PERMISSIONS.MANAGE_SCORES
+    },
     {
         pattern: /^\/scores\/([^/]+)\/edit$/,
-        page: ([id]) => scoreFormPage(decodeURIComponent(id))
+        page: ([id]) => scoreFormPage(decodeURIComponent(id)),
+        permission: PERMISSIONS.MANAGE_SCORES
     },
     {
         pattern: /^\/scores\/([^/]+)$/,
         page: ([id]) => scoreDetailsPage(decodeURIComponent(id))
     },
-    { pattern: /^\/masses$/, page: massesPage },
-    { pattern: /^\/masses\/new$/, page: () => massFormPage() },
+    {
+        pattern: /^\/masses$/,
+        page: massesPage,
+        permission: PERMISSIONS.MANAGE_MASSES
+    },
+    {
+        pattern: /^\/masses\/new$/,
+        page: () => massFormPage(),
+        permission: PERMISSIONS.MANAGE_MASSES
+    },
     {
         pattern: /^\/masses\/([^/]+)\/edit$/,
-        page: ([id]) => massFormPage(decodeURIComponent(id))
+        page: ([id]) => massFormPage(decodeURIComponent(id)),
+        permission: PERMISSIONS.MANAGE_MASSES
     },
     {
         pattern: /^\/masses\/([^/]+)$/,
@@ -64,7 +104,16 @@ const routes = [
     },
     { pattern: /^\/statistics$/, page: statisticsPage },
     { pattern: /^\/search$/, page: searchPage },
-    { pattern: /^\/settings$/, page: settingsPage }
+    {
+        pattern: /^\/users$/,
+        page: usersPage,
+        permission: PERMISSIONS.MANAGE_USERS
+    },
+    {
+        pattern: /^\/settings$/,
+        page: settingsPage,
+        permission: PERMISSIONS.MANAGE_SETTINGS
+    }
 ];
 
 class Router {
@@ -111,7 +160,11 @@ class Router {
         const pathname = normalizePath(window.location.pathname);
         const matchedRoute = routes.find((route) => route.pattern.test(pathname));
         const matches = matchedRoute?.pattern.exec(pathname)?.slice(1) ?? [];
-        const page = matchedRoute ? matchedRoute.page(matches) : notFoundPage();
+        const page = matchedRoute
+            ? matchedRoute.permission && !can(matchedRoute.permission)
+                ? forbiddenPage()
+                : matchedRoute.page(matches)
+            : notFoundPage();
         const app = document.querySelector("#app");
 
         document.title = `${page.title} · Cantus`;
@@ -141,6 +194,22 @@ class Router {
             }
         }
     }
+}
+
+function forbiddenPage() {
+    return {
+        title: "Acesso restrito",
+        render: () => `
+            <div class="empty-state card-surface">
+                <i class="bi bi-shield-lock"></i>
+                <h2>Acesso restrito</h2>
+                <p>Não tem permissão para abrir esta área.</p>
+                <a href="/songs" class="btn btn-primary" data-link>
+                    Voltar aos cânticos
+                </a>
+            </div>
+        `
+    };
 }
 
 function bindLayoutEvents(activeRouter) {

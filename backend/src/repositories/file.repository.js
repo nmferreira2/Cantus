@@ -1,4 +1,10 @@
-import { access, mkdir, unlink, writeFile } from "node:fs/promises";
+import {
+    access,
+    mkdir,
+    readFile,
+    unlink,
+    writeFile
+} from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +31,10 @@ export async function getExistingFilePath(relativePath) {
     const absolutePath = resolveStoragePath(relativePath);
     await access(absolutePath);
     return absolutePath;
+}
+
+export async function readStoredFile(relativePath) {
+    return readFile(resolveStoragePath(relativePath));
 }
 
 function resolveStoragePath(relativePath) {

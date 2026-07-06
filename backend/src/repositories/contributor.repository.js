@@ -51,6 +51,29 @@ export function restore(id) {
     });
 }
 
+export function findSongsByNames(names) {
+    return prisma.song.findMany({
+        where: {
+            deletedAt: null,
+            OR: [
+                { composerName: { in: names } },
+                { arrangerName: { in: names } },
+                { harmonizerName: { in: names } }
+            ]
+        },
+        orderBy: { title: "asc" },
+        select: {
+            id: true,
+            title: true,
+            subtitle: true,
+            composerName: true,
+            arrangerName: true,
+            harmonizerName: true,
+            active: true
+        }
+    });
+}
+
 function contributorWhere(query) {
     const archived = query.status === "archived";
     return {

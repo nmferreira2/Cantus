@@ -45,3 +45,33 @@ export async function restoreContributor(id) {
     }
     return repository.restore(id);
 }
+
+export async function getContributorSongs(id) {
+    const contributor = await getContributor(id);
+    const names = contributorNames(contributor);
+    return (await repository.findSongsByNames(names)).map((song) => ({
+        ...song,
+        roles: songRoles(song, names)
+    }));
+}
+
+function contributorNames(contributor) {
+    return [...new Set([
+        contributor.displayName,
+        [contributor.name, contributor.surname].filter(Boolean).join(" "),
+        contributor.name
+    ].filter(Boolean))];
+}
+
+function songRoles(song, names) {
+    const normalized = new Set(names.map(normalize));
+    return [
+        normalized.has(normalize(song.composerName)) ? "COMPOSER" : null,
+        normalized.has(normalize(song.arrangerName)) ? "ARRANGER" : null,
+        normalized.has(normalize(song.harmonizerName)) ? "HARMONIZER" : null
+    ].filter(Boolean);
+}
+
+function normalize(value) {
+    return (value ?? "").trim().toLocaleLowerCase("pt-PT");
+}

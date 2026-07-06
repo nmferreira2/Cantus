@@ -54,6 +54,19 @@ enum ScoreFormat {
   MUSICXML
 }
 
+enum ScoreCategory {
+  CHOIR
+  ORGAN
+  PIANO
+  GUITAR
+  OTHER
+}
+
+enum UserRole {
+  ADMIN
+  CONTRIBUTOR
+}
+
 enum MassSongSlot {
   ENTRANCE
   PENITENTIAL
@@ -120,6 +133,7 @@ model Contributor {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   deletedAt   DateTime?
+  users       User[]
 
   @@index([deletedAt, displayName])
   @@index([role])
@@ -131,6 +145,7 @@ model Score {
   title       String
   description String?
   format      ScoreFormat
+  category    ScoreCategory   @default(CHOIR)
   active      Boolean        @default(true)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -141,6 +156,7 @@ model Score {
 
   @@index([songId, deletedAt])
   @@index([format])
+  @@index([category])
 }
 
 model ScoreVersion {
@@ -153,11 +169,31 @@ model ScoreVersion {
   mimeType      String
   size          Int
   createdAt     DateTime @default(now())
+  deletedAt     DateTime?
 
   score Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
 
   @@unique([scoreId, versionNumber])
   @@index([scoreId, createdAt])
+  @@index([scoreId, deletedAt])
+}
+
+model User {
+  id                   String    @id @default(uuid())
+  username             String    @unique
+  passwordHash         String
+  role                 UserRole  @default(CONTRIBUTOR)
+  contributorId        String?
+  allowScoreManagement Boolean   @default(false)
+  active               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  contributor Contributor? @relation(fields: [contributorId], references: [id], onDelete: SetNull)
+
+  @@index([role, deletedAt])
+  @@index([contributorId])
 }
 
 model LiturgicalSeason {

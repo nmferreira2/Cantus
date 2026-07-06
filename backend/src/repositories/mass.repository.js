@@ -55,6 +55,51 @@ export function findById(id, includeArchived = false) {
     });
 }
 
+export function findForCelebrationPdf(id) {
+    return prisma.mass.findFirst({
+        where: { id, deletedAt: null },
+        select: {
+            id: true,
+            startsAt: true,
+            church: true,
+            celebration: { select: { name: true } },
+            songs: {
+                select: {
+                    slot: true,
+                    song: {
+                        select: {
+                            id: true,
+                            title: true,
+                            scores: {
+                                where: {
+                                    deletedAt: null,
+                                    active: true,
+                                    format: "PDF",
+                                    versions: { some: { deletedAt: null } }
+                                },
+                                orderBy: { updatedAt: "desc" },
+                                select: {
+                                    id: true,
+                                    category: true,
+                                    versions: {
+                                        where: { deletedAt: null },
+                                        orderBy: { versionNumber: "desc" },
+                                        take: 1,
+                                        select: {
+                                            id: true,
+                                            relativePath: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 export function getReferences() {
     return prisma.$transaction([
         prisma.liturgicalSeason.findMany({ orderBy: { sortOrder: "asc" } }),

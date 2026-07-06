@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
     addScoreVersion,
     archiveScore,
+    archiveScoreVersion,
     createScore,
     getScore,
     getScores,
@@ -15,16 +16,57 @@ import {
     validateScoreQuery,
     validateScoreUpdate
 } from "../validators/score.validator.js";
+import {
+    requirePermission,
+    requirePermissionForArchived
+} from "../middleware/auth.middleware.js";
+import { PERMISSIONS } from "../utils/permissions.js";
 
 const router = Router();
 
-router.get("/", validateScoreQuery, getScores);
-router.post("/", uploadScoreDocument, validateScoreCreate, createScore);
-router.post("/:id/versions", uploadScoreDocument, addScoreVersion);
+router.get(
+    "/",
+    requirePermissionForArchived(PERMISSIONS.DELETE_SCORES),
+    validateScoreQuery,
+    getScores
+);
+router.post(
+    "/",
+    requirePermission(PERMISSIONS.MANAGE_SCORES),
+    requirePermission(PERMISSIONS.UPLOAD_FILES),
+    uploadScoreDocument,
+    validateScoreCreate,
+    createScore
+);
+router.post(
+    "/:id/versions",
+    requirePermission(PERMISSIONS.MANAGE_SCORES),
+    requirePermission(PERMISSIONS.UPLOAD_FILES),
+    uploadScoreDocument,
+    addScoreVersion
+);
 router.get("/:id/versions/:versionId/file", serveScoreVersion);
-router.patch("/:id/restore", restoreScore);
+router.delete(
+    "/:id/versions/:versionId",
+    requirePermission(PERMISSIONS.DELETE_SCORES),
+    archiveScoreVersion
+);
+router.patch(
+    "/:id/restore",
+    requirePermission(PERMISSIONS.MANAGE_SCORES),
+    restoreScore
+);
 router.get("/:id", getScore);
-router.put("/:id", validateScoreUpdate, updateScore);
-router.delete("/:id", archiveScore);
+router.put(
+    "/:id",
+    requirePermission(PERMISSIONS.MANAGE_SCORES),
+    validateScoreUpdate,
+    updateScore
+);
+router.delete(
+    "/:id",
+    requirePermission(PERMISSIONS.DELETE_SCORES),
+    archiveScore
+);
 
 export default router;

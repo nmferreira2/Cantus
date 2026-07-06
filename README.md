@@ -84,17 +84,25 @@ not-implemented response while their future UI affordances remain visible.
 | Module | Endpoints |
 | --- | --- |
 | Contributors | CRUD and restore under `/api/contributors` |
-| Scores | CRUD under `/api/scores`; version uploads at `/:id/versions` |
-| Mass planner | CRUD under `/api/masses`; `/calendar` and `/references` |
+| Scores | CRUD under `/api/scores`; version uploads/deletion at `/:id/versions` |
+| Mass planner | CRUD under `/api/masses`; `/calendar`, `/references`, and `/:id/celebration-pdf` |
+| Users | Admin-only account and permission management under `/api/users` |
 | Statistics | Aggregates and chart data at `/api/statistics` |
 | Global search | Grouped results at `/api/search?q=` |
 | Settings | Application/church settings and logo at `/api/settings` |
 
-Contributor, Score, and Mass deletion is soft and their list APIs expose an
-explicit archived filter and restore operation. Score versions are immutable:
-uploading a replacement creates the next version while preserving the complete
-history. PDF and MusicXML files can be previewed or downloaded through guarded
+Contributor, Score, Mass, and Score Version deletion is soft. Uploaded files
+remain in storage when a version is archived. Scores are categorized as choir,
+organ, piano, guitar, or other. Uploading a replacement creates the next
+version; active versions can still be previewed or downloaded through guarded
 API routes.
+
+The account configured with `AUTH_USERNAME` and `AUTH_PASSWORD` remains the
+environment administrator with every permission. Additional administrators
+and contributor accounts are managed in **Utilizadores**. Contributor accounts
+are linked to one contributor record and may optionally receive permission to
+manage scores for songs associated with their own composer/arranger/
+harmonizer name.
 
 ## Structure
 

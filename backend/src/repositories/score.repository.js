@@ -11,6 +11,7 @@ const scoreInclude = {
         }
     },
     versions: {
+        where: { deletedAt: null },
         orderBy: { versionNumber: "desc" }
     }
 };
@@ -37,10 +38,15 @@ export async function findAll(query) {
                     }
                 },
                 versions: {
+                    where: { deletedAt: null },
                     orderBy: { versionNumber: "desc" },
                     take: 1
                 },
-                _count: { select: { versions: true } }
+                _count: {
+                    select: {
+                        versions: { where: { deletedAt: null } }
+                    }
+                }
             }
         }),
         prisma.score.count({ where })
@@ -109,12 +115,37 @@ export function addVersion(scoreId, data) {
     });
 }
 
-export function findVersion(scoreId, versionId) {
+export function findVersion(scoreId, versionId, includeArchived = false) {
     return prisma.scoreVersion.findFirst({
         where: {
             id: versionId,
-            scoreId
+            scoreId,
+            ...(includeArchived ? {} : { deletedAt: null })
         }
+    });
+}
+
+export function archiveVersion(scoreId, versionId) {
+    return prisma.$transaction(async (transaction) => {
+        await transaction.scoreVersion.update({
+            where: { id: versionId },
+            data: { deletedAt: new Date() }
+        });
+        const remaining = await transaction.scoreVersion.count({
+            where: { scoreId, deletedAt: null }
+        });
+        if (remaining === 0) {
+            await transaction.score.update({
+                where: { id: scoreId },
+                data: { active: false, deletedAt: new Date() }
+            });
+        } else {
+            await transaction.score.update({
+                where: { id: scoreId },
+                data: { updatedAt: new Date() }
+            });
+        }
+        return { remainingVersions: remaining };
     });
 }
 
@@ -126,10 +157,28 @@ export function archive(id) {
 }
 
 export function restore(id) {
-    return prisma.score.update({
-        where: { id },
-        data: { active: true, deletedAt: null },
-        include: scoreInclude
+    return prisma.$transaction(async (transaction) => {
+        const activeVersions = await transaction.scoreVersion.count({
+            where: { scoreId: id, deletedAt: null }
+        });
+        if (activeVersions === 0) {
+            const latest = await transaction.scoreVersion.findFirst({
+                where: { scoreId: id },
+                orderBy: { versionNumber: "desc" },
+                select: { id: true }
+            });
+            if (latest) {
+                await transaction.scoreVersion.update({
+                    where: { id: latest.id },
+                    data: { deletedAt: null }
+                });
+            }
+        }
+        return transaction.score.update({
+            where: { id },
+            data: { active: true, deletedAt: null },
+            include: scoreInclude
+        });
     });
 }
 
@@ -141,6 +190,7 @@ function scoreWhere(query) {
         ...(query.status === "inactive" ? { active: false } : {}),
         ...(query.songId ? { songId: query.songId } : {}),
         ...(query.format ? { format: query.format } : {}),
+        ...(query.category ? { category: query.category } : {}),
         ...(query.search
             ? {
                 OR: [

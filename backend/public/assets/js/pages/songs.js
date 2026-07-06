@@ -21,6 +21,7 @@ import {
     SONG_TYPES
 } from "../utils/format.js";
 import { groupTags, TAG_GROUP_LABELS } from "../utils/tags.js";
+import { can, PERMISSIONS } from "../utils/permissions.js";
 
 const columns = [
     { key: "title", label: "Cântico", sortable: true },
@@ -44,10 +45,12 @@ export function songsPage() {
                         Consulte, mantenha e desenvolva a música utilizada pela sua comunidade.
                     </p>
                 </div>
-                <a href="/songs/new" class="btn btn-primary" data-link>
-                    <i class="bi bi-plus-lg"></i>
-                    Adicionar cântico
-                </a>
+                ${can(PERMISSIONS.MANAGE_SONGS)
+                    ? `<a href="/songs/new" class="btn btn-primary" data-link>
+                        <i class="bi bi-plus-lg"></i>
+                        Adicionar cântico
+                    </a>`
+                    : ""}
             </section>
 
             <section class="card-surface">
@@ -68,7 +71,9 @@ export function songsPage() {
                             ["current", "Todos os atuais"],
                             ["active", "Ativos"],
                             ["inactive", "Inativos"],
-                            ["archived", "Arquivados"]
+                            ...(can(PERMISSIONS.DELETE_SONGS)
+                                ? [["archived", "Arquivados"]]
+                                : [])
                         ])}
                         ${filterSelect("type-filter", "Tipo", [
                             ["", "Todos os tipos"],
@@ -222,7 +227,9 @@ function renderSongs(response, state) {
             : "Experimente outro filtro ou adicione o primeiro cântico.",
         action: state.status === "archived"
             ? ""
-            : '<a href="/songs/new" class="btn btn-outline-primary" data-link>Adicionar cântico</a>'
+            : can(PERMISSIONS.MANAGE_SONGS)
+                ? '<a href="/songs/new" class="btn btn-outline-primary" data-link>Adicionar cântico</a>'
+                : ""
     });
 
     result.innerHTML = `
@@ -293,25 +300,28 @@ function currentActions(song, encodedId, safeTitle) {
             title="Ver"
             data-link
         ><i class="bi bi-eye"></i></a>
-        <a
+        ${can(PERMISSIONS.MANAGE_SONGS) ? `<a
             href="/songs/${encodedId}/edit"
             class="icon-button"
             aria-label="Editar ${safeTitle}"
             title="Editar"
             data-link
-        ><i class="bi bi-pencil"></i></a>
-        <button
+        ><i class="bi bi-pencil"></i></a>` : ""}
+        ${can(PERMISSIONS.DELETE_SONGS) ? `<button
             class="icon-button icon-button-danger"
             type="button"
             data-delete-song="${escapeHtml(song.id)}"
             data-song-title="${safeTitle}"
             aria-label="Arquivar ${safeTitle}"
             title="Arquivar"
-        ><i class="bi bi-archive"></i></button>
+        ><i class="bi bi-archive"></i></button>` : ""}
     `;
 }
 
 function restoreAction(song, safeTitle) {
+    if (!can(PERMISSIONS.DELETE_SONGS)) {
+        return "";
+    }
     return `
         <button
             class="btn btn-sm btn-light"

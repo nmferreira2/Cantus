@@ -4,7 +4,10 @@ import {
     importSongFile,
     songAttachmentUrl
 } from "../api/songs.api.js";
-import { scoreFileUrl } from "../api/scores.api.js";
+import {
+    archiveScoreVersion,
+    scoreFileUrl
+} from "../api/scores.api.js";
 import { confirmDialog } from "../components/modal.js";
 import { setFlash, showFlash, showToast } from "../components/toast.js";
 import { loadingState, statusBadge, typeBadges } from "../components/ui.js";
@@ -13,6 +16,12 @@ import { escapeHtml, formatDate, songTypesLabel } from "../utils/format.js";
 import { bindFileDrop } from "../utils/file-drop.js";
 import { massSlotLabel } from "../utils/masses.js";
 import { groupTags, TAG_GROUP_LABELS } from "../utils/tags.js";
+import {
+    can,
+    canManageScoreForSong,
+    PERMISSIONS
+} from "../utils/permissions.js";
+import { scoreCategoryLabel } from "../utils/scores.js";
 
 export function songDetailsPage(songId) {
     return {
@@ -47,12 +56,12 @@ function renderSong(song) {
                 <p class="page-description">${escapeHtml(song.subtitle || "Sem subtítulo")}</p>
             </div>
             <div class="d-flex gap-2">
-                <a href="/songs/${id}/edit" class="btn btn-primary" data-link>
+                ${can(PERMISSIONS.MANAGE_SONGS) ? `<a href="/songs/${id}/edit" class="btn btn-primary" data-link>
                     <i class="bi bi-pencil"></i> Editar
-                </a>
-                <button id="delete-song" class="btn btn-light text-danger" type="button">
+                </a>` : ""}
+                ${can(PERMISSIONS.DELETE_SONGS) ? `<button id="delete-song" class="btn btn-light text-danger" type="button">
                     <i class="bi bi-archive"></i> Arquivar
-                </button>
+                </button>` : ""}
             </div>
         </section>
 
@@ -83,7 +92,22 @@ function renderSong(song) {
                     </div>
                 </details>
 
-                ${scoresViewer(song)}
+                ${scoresViewer({
+                    song,
+                    scores: song.scores.filter(({ category }) => category === "CHOIR"),
+                    title: "Partituras",
+                    description: "Partituras para coro",
+                    viewerId: "choir",
+                    defaultCategory: "CHOIR"
+                })}
+                ${scoresViewer({
+                    song,
+                    scores: song.scores.filter(({ category }) => category !== "CHOIR"),
+                    title: "Partitura de órgão/acompanhamento",
+                    description: "Órgão, piano, guitarra e outros acompanhamentos",
+                    viewerId: "accompaniment",
+                    defaultCategory: "ORGAN"
+                })}
 
                 <section class="card-surface detail-card">
                     <div class="card-heading">
@@ -95,9 +119,8 @@ function renderSong(song) {
             </div>
 
             <div class="detail-stack">
-                ${importCard(song)}
+                ${can(PERMISSIONS.MANAGE_SONGS) ? importCard(song) : ""}
                 ${attachmentsCard(song)}
-                ${placeholderCard("Contribuidores", "people", "Autores, compositores e arranjadores associados aparecerão aqui.")}
             </div>
         </div>
         ${historyCard(song.history)}
@@ -105,7 +128,7 @@ function renderSong(song) {
 }
 
 function bindActions(song) {
-    document.querySelector("#delete-song").addEventListener("click", async (event) => {
+    document.querySelector("#delete-song")?.addEventListener("click", async (event) => {
         const confirmed = await confirmDialog({
             title: "Arquivar cântico?",
             message: `“${song.title}” sairá do repertório atual, mas poderá ser restaurado mais tarde.`,
@@ -128,7 +151,8 @@ function bindActions(song) {
         }
     });
 
-    document.querySelector("#song-import-form").addEventListener("submit", async (event) => {
+    const importForm = document.querySelector("#song-import-form");
+    importForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         const form = event.currentTarget;
         const file = form.elements.file.files[0];
@@ -174,17 +198,45 @@ function bindActions(song) {
         }
     });
 
-    document.querySelector("#song-import-file").addEventListener("change", (event) => {
+    document.querySelector("#song-import-file")?.addEventListener("change", (event) => {
         const fileName = event.currentTarget.files[0]?.name ?? "";
         document.querySelector("#selected-file").textContent = fileName;
     });
-    const importForm = document.querySelector("#song-import-form");
-    bindFileDrop({
-        dropZone: importForm.querySelector(".file-drop"),
-        input: document.querySelector("#song-import-file"),
-        onDrop: () => importForm.requestSubmit()
+    if (importForm) {
+        bindFileDrop({
+            dropZone: importForm.querySelector(".file-drop"),
+            input: document.querySelector("#song-import-file"),
+            onDrop: () => importForm.requestSubmit()
+        });
+    }
+    bindScoreViewers(song);
+    document.querySelector("#song-details").addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-delete-score-version]");
+        if (!button) {
+            return;
+        }
+        const confirmed = await confirmDialog({
+            title: "Remover versão da partitura?",
+            message: "A versão deixará de aparecer, mas o ficheiro será preservado no arquivo.",
+            confirmLabel: "Remover"
+        });
+        if (!confirmed) {
+            return;
+        }
+
+        button.disabled = true;
+        try {
+            await archiveScoreVersion(
+                button.dataset.scoreId,
+                button.dataset.deleteScoreVersion
+            );
+            showToast("Versão da partitura removida.");
+            await router.render();
+        } catch (error) {
+            showToast(error.message, "danger");
+            button.disabled = false;
+        }
     });
-    bindScoreViewer(song);
 }
 
 function importCard(song) {
@@ -255,33 +307,44 @@ function attachmentsCard(song) {
     `;
 }
 
-function scoresViewer(song) {
-    const selected = song.scores[0] ?? null;
+function scoresViewer({
+    song,
+    scores,
+    title,
+    description,
+    viewerId,
+    defaultCategory
+}) {
+    const selected = scores[0] ?? null;
+    const canManage = canManageScoreForSong(song);
     return `
-        <section class="card-surface detail-card song-score-viewer">
+        <section
+            class="card-surface detail-card song-score-viewer"
+            data-score-viewer="${viewerId}"
+        >
             <div class="card-heading">
                 <span class="card-heading-icon">
                     <i class="bi bi-file-earmark-music"></i>
                 </span>
                 <div>
-                    <h3>Partituras</h3>
-                    <p>${song.scores.length} ${song.scores.length === 1 ? "partitura" : "partituras"}</p>
+                    <h3>${title}</h3>
+                    <p>${description} · ${scores.length} ${scores.length === 1 ? "partitura" : "partituras"}</p>
                 </div>
-                <a
-                    href="/scores/new?songId=${encodeURIComponent(song.id)}"
+                ${canManage ? `<a
+                    href="/scores/new?songId=${encodeURIComponent(song.id)}&category=${defaultCategory}"
                     class="btn btn-sm btn-light ms-auto"
                     data-link
                 >
                     <i class="bi bi-plus-lg"></i> Adicionar
-                </a>
+                </a>` : ""}
             </div>
-            ${song.scores.length === 0
+            ${scores.length === 0
                 ? `<div class="score-viewer-empty">
                     <i class="bi bi-file-earmark-music"></i>
-                    <p>Ainda não existem partituras associadas.</p>
+                    <p>Ainda não existem partituras nesta categoria.</p>
                 </div>`
                 : `<div class="score-selector" role="tablist" aria-label="Partituras do cântico">
-                    ${song.scores.map((score) => `
+                    ${scores.map((score) => `
                         <button
                             class="btn btn-sm ${score.id === selected.id ? "btn-primary" : "btn-light"}"
                             type="button"
@@ -293,39 +356,37 @@ function scoresViewer(song) {
                         </button>
                     `).join("")}
                 </div>
-                <div id="song-score-preview">${scorePreview(selected)}</div>`
+                <div data-score-preview>${scorePreview(selected, song)}</div>`
             }
         </section>
     `;
 }
 
-function bindScoreViewer(song) {
-    const target = document.querySelector("#song-score-preview");
-    if (!target) {
-        return;
-    }
+function bindScoreViewers(song) {
+    document.querySelectorAll("[data-score-viewer]").forEach((viewer) => {
+        const target = viewer.querySelector("[data-score-preview]");
+        viewer.querySelectorAll("[data-score-select]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const score = song.scores.find(({ id }) => (
+                    id === button.dataset.scoreSelect
+                ));
+                if (!score) {
+                    return;
+                }
 
-    document.querySelectorAll("[data-score-select]").forEach((button) => {
-        button.addEventListener("click", () => {
-            const score = song.scores.find(({ id }) => (
-                id === button.dataset.scoreSelect
-            ));
-            if (!score) {
-                return;
-            }
-
-            document.querySelectorAll("[data-score-select]").forEach((item) => {
-                const active = item === button;
-                item.classList.toggle("btn-primary", active);
-                item.classList.toggle("btn-light", !active);
-                item.setAttribute("aria-selected", String(active));
+                viewer.querySelectorAll("[data-score-select]").forEach((item) => {
+                    const active = item === button;
+                    item.classList.toggle("btn-primary", active);
+                    item.classList.toggle("btn-light", !active);
+                    item.setAttribute("aria-selected", String(active));
+                });
+                target.innerHTML = scorePreview(score, song);
             });
-            target.innerHTML = scorePreview(score);
         });
     });
 }
 
-function scorePreview(score) {
+function scorePreview(score, song) {
     if (!score?.latestVersion) {
         return '<p class="attachment-empty score-viewer-empty">Esta partitura ainda não tem uma versão disponível.</p>';
     }
@@ -337,6 +398,8 @@ function scorePreview(score) {
             <div>
                 <strong>${escapeHtml(score.title)}</strong>
                 <small>
+                    ${scoreCategoryLabel(score.category)}
+                    ·
                     ${score.format === "MUSICXML" ? "MusicXML" : "PDF"}
                     · ${score.versionCount}
                     ${score.versionCount === 1 ? "versão" : "versões"}
@@ -348,6 +411,16 @@ function scorePreview(score) {
             <a href="${downloadUrl}" class="btn btn-sm btn-light">
                 <i class="bi bi-download"></i> Descarregar
             </a>
+            ${can(PERMISSIONS.DELETE_SCORES) && canManageScoreForSong(song)
+                ? `<button
+                    class="btn btn-sm btn-light text-danger"
+                    type="button"
+                    data-delete-score-version="${escapeHtml(score.latestVersion.id)}"
+                    data-score-id="${escapeHtml(score.id)}"
+                >
+                    <i class="bi bi-trash3"></i> Remover versão
+                </button>`
+                : ""}
         </div>
         ${score.format === "PDF"
             ? `<iframe
@@ -448,19 +521,6 @@ function longText(label, value) {
             <h4>${label}</h4>
             <p>${escapeHtml(value).replaceAll("\n", "<br>")}</p>
         </div>
-    `;
-}
-
-function placeholderCard(title, icon, description) {
-    return `
-        <section class="card-surface placeholder-card">
-            <span class="card-heading-icon"><i class="bi bi-${icon}"></i></span>
-            <div>
-                <h3>${title}</h3>
-                <p>${description}</p>
-            </div>
-            <span class="soon-badge">Brevemente</span>
-        </section>
     `;
 }
 

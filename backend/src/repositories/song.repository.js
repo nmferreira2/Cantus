@@ -42,14 +42,19 @@ const detailRelations = {
         orderBy: { createdAt: "desc" }
     },
     scores: {
-        where: { deletedAt: null },
+        where: {
+            deletedAt: null,
+            versions: { some: { deletedAt: null } }
+        },
         orderBy: { updatedAt: "desc" },
         select: {
             id: true,
             title: true,
             format: true,
+            category: true,
             updatedAt: true,
             versions: {
+                where: { deletedAt: null },
                 orderBy: { versionNumber: "desc" },
                 take: 1,
                 select: {
@@ -59,7 +64,9 @@ const detailRelations = {
                 }
             },
             _count: {
-                select: { versions: true }
+                select: {
+                    versions: { where: { deletedAt: null } }
+                }
             }
         }
     },

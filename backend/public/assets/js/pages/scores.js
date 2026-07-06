@@ -5,10 +5,17 @@ import { pagination } from "../components/pagination.js";
 import { showFlash, showToast } from "../components/toast.js";
 import { emptyState, loadingState, statusBadge } from "../components/ui.js";
 import { escapeHtml, formatDate } from "../utils/format.js";
+import {
+    can,
+    canManageScoreForSong,
+    PERMISSIONS
+} from "../utils/permissions.js";
+import { SCORE_CATEGORIES, scoreCategoryLabel } from "../utils/scores.js";
 
 const columns = [
     { key: "title", label: "Partitura", sortable: true },
     { key: "song", label: "Cântico" },
+    { key: "category", label: "Tipo" },
     { key: "format", label: "Formato", sortable: true },
     { key: "versions", label: "Versões" },
     { key: "updatedAt", label: "Atualizada", sortable: true },
@@ -20,13 +27,14 @@ export function scoresPage() {
     return {
         title: "Partituras",
         render: () => `
-            <section class="page-heading"><div><p class="eyebrow">Biblioteca</p><h2>Partituras</h2><p class="page-description">Ficheiros PDF e MusicXML com versões associados ao repertório.</p></div><a href="/scores/new" class="btn btn-primary" data-link><i class="bi bi-file-earmark-plus"></i> Adicionar partitura</a></section>
+            <section class="page-heading"><div><p class="eyebrow">Biblioteca</p><h2>Partituras</h2><p class="page-description">Ficheiros PDF e MusicXML com versões associados ao repertório.</p></div>${can(PERMISSIONS.MANAGE_SCORES) ? '<a href="/scores/new" class="btn btn-primary" data-link><i class="bi bi-file-earmark-plus"></i> Adicionar partitura</a>' : ""}</section>
             <section class="card-surface">
                 <form id="score-filters" class="toolbar song-toolbar">
                     <div class="search-control"><i class="bi bi-search"></i><input id="score-search" class="form-control" type="search" placeholder="Pesquisar partituras ou cânticos"></div>
                     <div class="filter-controls">
                         ${filter("score-format", [["", "Todos os formatos"], ["PDF", "PDF"], ["MUSICXML", "MusicXML"]])}
-                        ${filter("score-status", [["current", "Todas as atuais"], ["active", "Ativas"], ["inactive", "Inativas"], ["archived", "Arquivadas"]])}
+                        ${filter("score-category", [["", "Todos os tipos"], ...SCORE_CATEGORIES])}
+                        ${filter("score-status", [["current", "Todas as atuais"], ["active", "Ativas"], ["inactive", "Inativas"], ...(can(PERMISSIONS.DELETE_SCORES) ? [["archived", "Arquivadas"]] : [])])}
                     </div>
                     <span id="score-count" class="result-count"></span>
                 </form>
@@ -42,6 +50,7 @@ async function mount() {
     const state = {
         search: query.get("search") ?? "",
         format: ["PDF", "MUSICXML"].includes(query.get("format")) ? query.get("format") : "",
+        category: SCORE_CATEGORIES.some(([value]) => value === query.get("category")) ? query.get("category") : "",
         status: ["current", "active", "inactive", "archived"].includes(query.get("status")) ? query.get("status") : "current",
         page: 1, pageSize: 10, sortBy: "updatedAt", sortOrder: "desc"
     };
@@ -49,6 +58,7 @@ async function mount() {
     const input = document.querySelector("#score-search");
     input.value = state.search;
     document.querySelector("#score-format").value = state.format;
+    document.querySelector("#score-category").value = state.category;
     document.querySelector("#score-status").value = state.status;
     let timer;
     const load = async () => {
@@ -73,6 +83,7 @@ async function mount() {
     });
     document.querySelectorAll("#score-filters select").forEach((select) => select.addEventListener("change", () => {
         state.format = document.querySelector("#score-format").value;
+        state.category = document.querySelector("#score-category").value;
         state.status = document.querySelector("#score-status").value;
         state.page = 1;
         load();
@@ -103,7 +114,7 @@ function render(response, state) {
             rows: response.data.map(row),
             sortBy: state.sortBy,
             sortOrder: state.sortOrder,
-            emptyContent: emptyState({ icon: "file-earmark-music", title: state.status === "archived" ? "Sem partituras arquivadas" : "Nenhuma partitura encontrada", description: "Carregue uma partitura PDF ou MusicXML.", action: state.status === "archived" ? "" : '<a href="/scores/new" class="btn btn-outline-primary" data-link>Adicionar partitura</a>' })
+            emptyContent: emptyState({ icon: "file-earmark-music", title: state.status === "archived" ? "Sem partituras arquivadas" : "Nenhuma partitura encontrada", description: "Carregue uma partitura PDF ou MusicXML.", action: state.status === "archived" || !can(PERMISSIONS.MANAGE_SCORES) ? "" : '<a href="/scores/new" class="btn btn-outline-primary" data-link>Adicionar partitura</a>' })
         })}
         ${pagination(response.pagination)}
     `;
@@ -118,13 +129,15 @@ function row(score) {
         score.song.arrangerName ? `Arr.: ${score.song.arrangerName}` : "",
         score.song.harmonizerName ? `Harm.: ${score.song.harmonizerName}` : ""
     ].filter(Boolean).join(" · ");
+    const canManage = canManageScoreForSong(score.song);
+    const canDelete = can(PERMISSIONS.DELETE_SCORES) && canManage;
     return `<tr>
         <td>${archived ? `<span class="song-title">${title}</span>` : `<a href="/scores/${id}" class="song-title" data-link>${title}</a>`}<span class="song-subtitle">${escapeHtml(authorship)}</span><span class="song-subtitle">${escapeHtml(score.latestVersion?.originalName || "Sem ficheiro")}</span></td>
-        <td>${escapeHtml(score.song.title)}</td><td><span class="type-badge">${score.format === "MUSICXML" ? "MusicXML" : "PDF"}</span></td>
+        <td>${escapeHtml(score.song.title)}</td><td><span class="type-badge">${scoreCategoryLabel(score.category)}</span></td><td><span class="type-badge">${score.format === "MUSICXML" ? "MusicXML" : "PDF"}</span></td>
         <td>${score.versionCount}</td><td>${formatDate(score.updatedAt)}</td><td>${statusBadge(score.active, archived)}</td>
         <td><div class="row-actions">${archived
-            ? `<button class="btn btn-sm btn-light" data-restore-score="${score.id}" data-title="${title}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`
-            : `<a href="/scores/${id}" class="icon-button" data-link title="Ver"><i class="bi bi-eye"></i></a><a href="/scores/${id}/edit" class="icon-button" data-link title="Editar"><i class="bi bi-pencil"></i></a><button class="icon-button icon-button-danger" data-archive-score="${score.id}" data-title="${title}" title="Arquivar"><i class="bi bi-archive"></i></button>`
+            ? canManage ? `<button class="btn btn-sm btn-light" data-restore-score="${score.id}" data-title="${title}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>` : ""
+            : `<a href="/scores/${id}" class="icon-button" data-link title="Ver"><i class="bi bi-eye"></i></a>${canManage ? `<a href="/scores/${id}/edit" class="icon-button" data-link title="Editar"><i class="bi bi-pencil"></i></a>` : ""}${canDelete ? `<button class="icon-button icon-button-danger" data-archive-score="${score.id}" data-title="${title}" title="Arquivar"><i class="bi bi-archive"></i></button>` : ""}`
         }</div></td>
     </tr>`;
 }

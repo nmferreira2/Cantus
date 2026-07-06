@@ -7,3 +7,7 @@ export async function getComposers(req, res) {
 export async function mergeComposers(req, res) {
     return res.json(await service.mergeComposers(req.validatedBody));
 }
+
+export async function getComposer(req, res) {
+    return res.json(await service.getComposer(req.params.name));
+}

@@ -12,6 +12,7 @@ import settingRoutes from "./setting.routes.js";
 import statisticsRoutes from "./statistics.routes.js";
 import songRoutes from "./song.routes.js";
 import tagRoutes from "./tag.routes.js";
+import userRoutes from "./user.routes.js";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use("/search", searchRoutes);
 router.use("/settings", settingRoutes);
 router.use("/songs", songRoutes);
 router.use("/tags", tagRoutes);
+router.use("/users", userRoutes);
 
 export default router;

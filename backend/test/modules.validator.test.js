@@ -15,6 +15,7 @@ import {
     parseScoreQuery
 } from "../src/validators/score.validator.js";
 import { parseSettings } from "../src/validators/setting.validator.js";
+import { parseUser } from "../src/validators/user.validator.js";
 
 test("contributor validation derives a display name and validates roles", () => {
     const contributor = parseContributor({
@@ -57,9 +58,33 @@ test("score validation handles multipart booleans and query limits", () => {
     }, true);
     assert.equal(score.active, false);
     assert.equal(score.description, null);
+    assert.equal(score.category, "CHOIR");
     assert.throws(
         () => parseScoreQuery({ format: "TXT" }),
         (error) => error.status === 400
+    );
+});
+
+test("user validation requires contributor links and safe passwords", () => {
+    const user = parseUser({
+        username: "cantor",
+        password: "segredo-forte",
+        role: "CONTRIBUTOR",
+        contributorId: "contributor-1",
+        allowScoreManagement: true
+    });
+    assert.equal(user.allowScoreManagement, true);
+    assert.throws(
+        () => parseUser({
+            username: "cantor",
+            password: "curta",
+            role: "CONTRIBUTOR"
+        }),
+        (error) => (
+            error.status === 422
+            && Boolean(error.details.password)
+            && Boolean(error.details.contributorId)
+        )
     );
 });
 

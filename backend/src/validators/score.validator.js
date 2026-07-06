@@ -1,5 +1,8 @@
 import { AppError } from "../utils/app-error.js";
-import { SCORE_FORMATS } from "../utils/score.constants.js";
+import {
+    SCORE_CATEGORIES,
+    SCORE_FORMATS
+} from "../utils/score.constants.js";
 
 export function validateScoreCreate(req, res, next) {
     try {
@@ -34,8 +37,8 @@ export function parseScore(payload, creating) {
     }
 
     const allowed = creating
-        ? ["songId", "title", "description", "active"]
-        : ["title", "description", "active"];
+        ? ["songId", "title", "description", "category", "active"]
+        : ["title", "description", "category", "active"];
     const unsupported = Object.keys(payload).filter((field) => !allowed.includes(field));
     if (unsupported.length > 0) {
         throw new AppError(400, "O pedido contém campos não suportados.", {
@@ -50,9 +53,13 @@ export function parseScore(payload, creating) {
             : {}),
         title: requiredText(payload.title, "title", 200, errors),
         description: optionalText(payload.description, "description", 2000, errors),
+        category: payload.category ?? "CHOIR",
         active: parseBoolean(payload.active, true, errors)
     };
 
+    if (!SCORE_CATEGORIES.includes(result.category)) {
+        errors.category = "O tipo de partitura é inválido.";
+    }
     if (Object.keys(errors).length > 0) {
         throw new AppError(422, "Não foi possível validar a partitura.", errors);
     }
@@ -67,6 +74,7 @@ export function parseScoreQuery(query = {}) {
     const sortBy = query.sortBy ?? "updatedAt";
     const sortOrder = query.sortOrder ?? "desc";
     const format = query.format ?? "";
+    const category = query.category ?? "";
     const status = query.status ?? "current";
 
     if (!["title", "format", "createdAt", "updatedAt"].includes(sortBy)) {
@@ -77,6 +85,9 @@ export function parseScoreQuery(query = {}) {
     }
     if (format && !SCORE_FORMATS.includes(format)) {
         errors.format = "O filtro de formato é inválido.";
+    }
+    if (category && !SCORE_CATEGORIES.includes(category)) {
+        errors.category = "O filtro de tipo é inválido.";
     }
     if (!["current", "active", "inactive", "archived"].includes(status)) {
         errors.status = "O filtro de estado é inválido.";
@@ -93,6 +104,7 @@ export function parseScoreQuery(query = {}) {
         sortBy,
         sortOrder,
         format,
+        category,
         status
     };
 }
@@ -154,6 +166,7 @@ function fieldLabel(field) {
     return {
         songId: "O cântico",
         title: "O título",
-        description: "A descrição"
+        description: "A descrição",
+        category: "O tipo"
     }[field] ?? field;
 }

@@ -39,6 +39,13 @@ export function archiveScore(id) {
     });
 }
 
+export function archiveScoreVersion(scoreId, versionId) {
+    return apiRequest(
+        `/api/scores/${encodeURIComponent(scoreId)}/versions/${encodeURIComponent(versionId)}`,
+        { method: "DELETE" }
+    );
+}
+
 export function restoreScore(id) {
     return apiRequest(`/api/scores/${encodeURIComponent(id)}/restore`, {
         method: "PATCH"

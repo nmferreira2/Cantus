@@ -25,3 +25,31 @@ export async function mergeComposers({ sources, name }) {
         updatedSongs: result.count
     };
 }
+
+export async function getComposer(name) {
+    const [contributor, songs] = await Promise.all([
+        repository.findContributorByName(name),
+        repository.findSongsByName(name)
+    ]);
+    if (!contributor && songs.length === 0) {
+        throw new AppError(404, "Compositor não encontrado.");
+    }
+
+    const normalizedName = name.trim().toLocaleLowerCase("pt-PT");
+    return {
+        name,
+        contributor,
+        songs: songs.map((song) => ({
+            ...song,
+            roles: [
+                normalize(song.composerName) === normalizedName ? "COMPOSER" : null,
+                normalize(song.arrangerName) === normalizedName ? "ARRANGER" : null,
+                normalize(song.harmonizerName) === normalizedName ? "HARMONIZER" : null
+            ].filter(Boolean)
+        }))
+    };
+}
+
+function normalize(value) {
+    return (value ?? "").trim().toLocaleLowerCase("pt-PT");
+}

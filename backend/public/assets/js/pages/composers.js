@@ -205,7 +205,7 @@ async function mountComposers() {
 
 function composerOption(composer, selected) {
     return `
-        <label class="composer-option">
+        <div class="composer-option">
             <input
                 class="form-check-input"
                 type="checkbox"
@@ -213,12 +213,20 @@ function composerOption(composer, selected) {
                 ${selected ? "checked" : ""}
             >
             <span>
-                <strong>${escapeHtml(composer.name)}</strong>
+                <a href="/composers/${encodeURIComponent(composer.name)}" data-link>
+                    <strong>${escapeHtml(composer.name)}</strong>
+                </a>
                 <small>
                     ${composer.songCount}
                     ${composer.songCount === 1 ? "cântico" : "cânticos"}
                 </small>
             </span>
-        </label>
+            <a
+                href="/composers/${encodeURIComponent(composer.name)}"
+                class="icon-button ms-auto"
+                title="Ver compositor"
+                data-link
+            ><i class="bi bi-chevron-right"></i></a>
+        </div>
     `;
 }

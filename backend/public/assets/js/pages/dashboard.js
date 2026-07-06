@@ -1,4 +1,5 @@
 import { getStatistics } from "../api/statistics.api.js";
+import { can, PERMISSIONS } from "../utils/permissions.js";
 
 const cards = [
     { key: "songs", label: "Cânticos", icon: "music-note-list", tone: "purple" },
@@ -23,10 +24,10 @@ export function dashboardPage() {
                         numa única aplicação.
                     </p>
                 </div>
-                <a href="/songs/new" class="btn btn-light" data-link>
+                ${can(PERMISSIONS.MANAGE_SONGS) ? `<a href="/songs/new" class="btn btn-light" data-link>
                     <i class="bi bi-plus-lg"></i>
                     Adicionar cântico
-                </a>
+                </a>` : ""}
             </section>
 
             <section class="dashboard-section">

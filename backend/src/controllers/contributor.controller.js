@@ -26,3 +26,7 @@ export async function archiveContributor(req, res) {
 export async function restoreContributor(req, res) {
     return res.json(await service.restoreContributor(req.params.id));
 }
+
+export async function getContributorSongs(req, res) {
+    return res.json(await service.getContributorSongs(req.params.id));
+}

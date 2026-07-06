@@ -6,6 +6,11 @@ import * as repository from "../repositories/score.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { paginatedResponse } from "../utils/pagination.js";
 import { getSongById } from "./song.service.js";
+import {
+    hasPermission,
+    isContributorAssociatedWithSong,
+    PERMISSIONS
+} from "../utils/permissions.js";
 
 export async function getScores(query) {
     const result = await repository.findAll(query);
@@ -24,8 +29,9 @@ export async function getScore(id) {
     return score;
 }
 
-export async function createScore(data, file) {
-    await getSongById(data.songId);
+export async function createScore(data, file, user) {
+    const song = await getSongById(data.songId);
+    assertCanManageScore(user, song);
     const document = validateScoreFile(file);
     const stored = await storeDocument(file, document.extension);
 
@@ -45,13 +51,15 @@ export async function createScore(data, file) {
     }
 }
 
-export async function updateScore(id, data) {
-    await getScore(id);
+export async function updateScore(id, data, user) {
+    const score = await getScore(id);
+    assertCanManageScore(user, score.song);
     return repository.update(id, data);
 }
 
-export async function addScoreVersion(id, file) {
+export async function addScoreVersion(id, file, user) {
     const score = await getScore(id);
+    assertCanManageScore(user, score.song);
     const document = validateScoreFile(file);
     if (document.format !== score.format) {
         throw new AppError(
@@ -93,12 +101,23 @@ export async function getScoreVersionFile(scoreId, versionId) {
     }
 }
 
-export async function archiveScore(id) {
-    await getScore(id);
+export async function archiveScore(id, user) {
+    const score = await getScore(id);
+    assertCanDeleteScore(user, score.song);
     return repository.archive(id);
 }
 
-export async function restoreScore(id) {
+export async function archiveScoreVersion(scoreId, versionId, user) {
+    const score = await getScore(scoreId);
+    assertCanDeleteScore(user, score.song);
+    const version = await repository.findVersion(scoreId, versionId);
+    if (!version) {
+        throw new AppError(404, "Versão da partitura não encontrada.");
+    }
+    return repository.archiveVersion(scoreId, versionId);
+}
+
+export async function restoreScore(id, user) {
     const score = await repository.findById(id, true);
     if (!score) {
         throw new AppError(404, "Partitura não encontrada.");
@@ -106,7 +125,32 @@ export async function restoreScore(id) {
     if (!score.deletedAt) {
         throw new AppError(409, "A partitura não está arquivada.");
     }
+    assertCanManageScore(user, score.song);
     return repository.restore(id);
+}
+
+function assertCanManageScore(user, song) {
+    if (
+        !hasPermission(user, PERMISSIONS.MANAGE_SCORES)
+        || !isContributorAssociatedWithSong(user, song)
+    ) {
+        throw new AppError(
+            403,
+            "Não tem permissão para gerir partituras deste cântico."
+        );
+    }
+}
+
+function assertCanDeleteScore(user, song) {
+    if (
+        !hasPermission(user, PERMISSIONS.DELETE_SCORES)
+        || !isContributorAssociatedWithSong(user, song)
+    ) {
+        throw new AppError(
+            403,
+            "Não tem permissão para eliminar esta partitura."
+        );
+    }
 }
 
 function validateScoreFile(file) {

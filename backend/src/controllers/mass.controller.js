@@ -32,3 +32,13 @@ export async function archiveMass(req, res) {
 export async function restoreMass(req, res) {
     return res.json(await service.restoreMass(req.params.id));
 }
+
+export async function generateCelebrationPdf(req, res) {
+    const pdf = await service.generateCelebrationPdf(req.params.id);
+    res.type("application/pdf");
+    res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(pdf.filename)}`
+    );
+    return res.send(pdf.buffer);
+}

@@ -9,6 +9,10 @@ export function getContributor(id) {
     return apiRequest(`/api/contributors/${encodeURIComponent(id)}`);
 }
 
+export function getContributorSongs(id) {
+    return apiRequest(`/api/contributors/${encodeURIComponent(id)}/songs`);
+}
+
 export function createContributor(data) {
     return apiRequest("/api/contributors", {
         method: "POST",

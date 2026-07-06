@@ -1,6 +1,6 @@
 import prisma from "../config/prisma.js";
 
-export async function globalSearch(query, limit = 5) {
+export async function globalSearch(query, limit = 5, includeAdministration = true) {
     const [songs, contributors, scores, masses] = await Promise.all([
         prisma.song.findMany({
             where: {
@@ -26,7 +26,7 @@ export async function globalSearch(query, limit = 5) {
                 types: { select: { type: true } }
             }
         }),
-        prisma.contributor.findMany({
+        includeAdministration ? prisma.contributor.findMany({
             where: {
                 deletedAt: null,
                 OR: [
@@ -42,7 +42,7 @@ export async function globalSearch(query, limit = 5) {
                 role: true,
                 email: true
             }
-        }),
+        }) : Promise.resolve([]),
         prisma.score.findMany({
             where: {
                 deletedAt: null,
@@ -60,7 +60,7 @@ export async function globalSearch(query, limit = 5) {
                 song: { select: { title: true } }
             }
         }),
-        prisma.mass.findMany({
+        includeAdministration ? prisma.mass.findMany({
             where: {
                 deletedAt: null,
                 OR: [
@@ -78,7 +78,7 @@ export async function globalSearch(query, limit = 5) {
                 church: true,
                 celebration: { select: { name: true } }
             }
-        })
+        }) : Promise.resolve([])
     ]);
 
     return {
