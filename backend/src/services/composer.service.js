@@ -17,7 +17,7 @@ export async function getComposers() {
 
 export async function mergeComposers({ sources, name }) {
     const existing = await repository.findNames(sources);
-    const existingNames = new Set(existing.map(({ composerName }) => composerName));
+    const existingNames = new Set(existing.map(({ name: existingName }) => existingName));
     const missing = sources.filter((source) => !existingNames.has(source));
 
     if (missing.length > 0) {

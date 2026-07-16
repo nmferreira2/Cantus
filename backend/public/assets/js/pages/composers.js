@@ -225,8 +225,17 @@ function composerOption(composer, selected) {
                         ${composer.songCount}
                         ${composer.songCount === 1 ? "cântico" : "cânticos"}
                     </small>
+                    <small>${escapeHtml(roleSummary(composer.roleCounts))}</small>
                 </span>
             </a>
         </article>
     `;
+}
+
+function roleSummary(roleCounts = {}) {
+    return [
+        roleCounts.COMPOSER ? `${roleCounts.COMPOSER} comp.` : null,
+        roleCounts.ARRANGER ? `${roleCounts.ARRANGER} arr.` : null,
+        roleCounts.HARMONIZER ? `${roleCounts.HARMONIZER} harm.` : null
+    ].filter(Boolean).join(" · ");
 }

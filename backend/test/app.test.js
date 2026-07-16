@@ -139,6 +139,8 @@ test("tags API is available and songs require a composer", async (context) => {
     const title = `Cântico temporário ${suffix}`;
     const firstComposer = `Compositor A ${suffix}`;
     const secondComposer = `Compositor B ${suffix}`;
+    const arrangerName = `Arranjador ${suffix}`;
+    const harmonizerName = `Harmonizador ${suffix}`;
     const canonicalComposer = `Compositor unificado ${suffix}`;
     const createResponse = await fetch(`${baseUrl}/songs`, {
         method: "POST",
@@ -149,6 +151,8 @@ test("tags API is available and songs require a composer", async (context) => {
         body: JSON.stringify({
             title,
             composerName: firstComposer,
+            arrangerName,
+            harmonizerName,
             songTypes: ["ENTRANCE", "FINAL"],
             active: true,
             tagIds: []
@@ -192,9 +196,10 @@ test("tags API is available and songs require a composer", async (context) => {
         headers: { Cookie: cookie }
     });
     assert.equal(composersResponse.status, 200);
-    assert.ok((await composersResponse.json()).some(({ name }) => (
-        name === firstComposer
-    )));
+    const composers = await composersResponse.json();
+    assert.ok(composers.some(({ name }) => name === firstComposer));
+    assert.ok(composers.some(({ name }) => name === arrangerName));
+    assert.ok(composers.some(({ name }) => name === harmonizerName));
 
     const mergeResponse = await fetch(`${baseUrl}/composers/merge`, {
         method: "POST",

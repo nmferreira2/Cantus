@@ -1,12 +1,16 @@
 import prisma from "../config/prisma.js";
 
 export async function findAll() {
-    const [composers, contributors] = await prisma.$transaction([
-        prisma.song.groupBy({
-            by: ["composerName"],
+    const [songs, contributors] = await prisma.$transaction([
+        prisma.song.findMany({
             where: { deletedAt: null },
-            _count: { composerName: true },
-            orderBy: { composerName: "asc" }
+            orderBy: { title: "asc" },
+            select: {
+                id: true,
+                composerName: true,
+                arrangerName: true,
+                harmonizerName: true
+            }
         }),
         prisma.contributor.findMany({
             where: { deletedAt: null },
@@ -20,28 +24,71 @@ export async function findAll() {
             if (key && !profiles.has(key)) profiles.set(key, contributor);
         }
     });
+    const people = new Map();
+    songs.forEach((song) => {
+        addPerson(people, song.composerName, "COMPOSER", song.id);
+        addPerson(people, song.arrangerName, "ARRANGER", song.id);
+        addPerson(people, song.harmonizerName, "HARMONIZER", song.id);
+    });
 
-    return composers.map(({ composerName, _count }) => ({
-        name: composerName,
-        songCount: _count.composerName,
-        contributor: profiles.get(normalize(composerName)) ?? null
-    }));
+    return [...people.values()]
+        .map(({ name, songIds, roleCounts }) => ({
+            name,
+            songCount: songIds.size,
+            roleCounts,
+            contributor: profiles.get(normalize(name)) ?? null
+        }))
+        .sort((first, second) => first.name.localeCompare(second.name, "pt"));
 }
 
-export function findNames(names) {
-    return prisma.song.findMany({
-        where: { composerName: { in: names } },
-        distinct: ["composerName"],
-        select: { composerName: true }
+export async function findNames(names) {
+    const songs = await prisma.song.findMany({
+        where: {
+            deletedAt: null,
+            OR: [
+                { composerName: { in: names } },
+                { arrangerName: { in: names } },
+                { harmonizerName: { in: names } }
+            ]
+        },
+        select: {
+            composerName: true,
+            arrangerName: true,
+            harmonizerName: true
+        }
     });
+    const requested = new Set(names);
+    const existing = new Map();
+    songs.forEach((song) => {
+        for (const value of [
+            song.composerName,
+            song.arrangerName,
+            song.harmonizerName
+        ]) {
+            if (requested.has(value) && !existing.has(value)) {
+                existing.set(value, { name: value });
+            }
+        }
+    });
+    return [...existing.values()];
 }
 
 export function mergeNames(sources, name) {
     return prisma.$transaction(async (transaction) => {
-        const result = await transaction.song.updateMany({
-            where: { composerName: { in: sources } },
-            data: { composerName: name }
-        });
+        const [composerResult, arrangerResult, harmonizerResult] = await Promise.all([
+            transaction.song.updateMany({
+                where: { composerName: { in: sources } },
+                data: { composerName: name }
+            }),
+            transaction.song.updateMany({
+                where: { arrangerName: { in: sources } },
+                data: { arrangerName: name }
+            }),
+            transaction.song.updateMany({
+                where: { harmonizerName: { in: sources } },
+                data: { harmonizerName: name }
+            })
+        ]);
         const contributors = await transaction.contributor.findMany({
             where: {
                 deletedAt: null,
@@ -52,6 +99,11 @@ export function mergeNames(sources, name) {
             },
             orderBy: { createdAt: "asc" }
         });
+        const result = {
+            count: composerResult.count
+                + arrangerResult.count
+                + harmonizerResult.count
+        };
         if (contributors.length === 0) {
             return result;
         }
@@ -152,6 +204,30 @@ export function findSongsByName(name) {
 function mergeText(values) {
     return [...new Set(values.map((value) => value?.trim()).filter(Boolean))]
         .join("\n\n") || null;
+}
+
+function addPerson(people, value, role, songId) {
+    const name = value?.trim();
+    if (!name) {
+        return;
+    }
+
+    const key = normalize(name);
+    if (!people.has(key)) {
+        people.set(key, {
+            name,
+            songIds: new Set(),
+            roleCounts: {
+                COMPOSER: 0,
+                ARRANGER: 0,
+                HARMONIZER: 0
+            }
+        });
+    }
+
+    const person = people.get(key);
+    person.songIds.add(songId);
+    person.roleCounts[role] += 1;
 }
 
 function normalize(value) {
