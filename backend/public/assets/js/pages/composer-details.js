@@ -50,8 +50,9 @@ function render(composer) {
                     id="composer-photo"
                     class="visually-hidden"
                     type="file"
-                    accept=".png,.jpg,.jpeg,.webp"
+                    accept=".png,.jpg,.jpeg,.jfif,.webp,image/png,image/jpeg,image/webp"
                 >
+                <small class="text-muted d-block mt-2">PNG, JPEG/JFIF ou WebP até 15 MB.</small>
             </div>
         </section>
         <div class="detail-grid">
@@ -134,6 +135,11 @@ function bindProfile(composer) {
         async (event) => {
             const file = event.currentTarget.files[0];
             if (!file) return;
+            if (file.size > 15 * 1024 * 1024) {
+                showToast("A fotografia deve ter no máximo 15 MB.", "danger");
+                event.currentTarget.value = "";
+                return;
+            }
             try {
                 const updated = await uploadComposerPhoto(composer.name, file);
                 if (updated.contributor?.photoUrl) {

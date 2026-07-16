@@ -106,7 +106,22 @@ export function dashboardPage() {
 }
 
 async function mountDashboard() {
-    const statistics = await getStatistics();
+    let statistics;
+    try {
+        statistics = await getStatistics();
+    } catch (error) {
+        const lists = document.querySelector("#dashboard-lists");
+        if (lists) {
+            lists.innerHTML = `
+                <section class="card-surface dashboard-list-card">
+                    <p class="attachment-empty">
+                        Não foi possível atualizar a atividade da biblioteca.
+                    </p>
+                </section>
+            `;
+        }
+        throw error;
+    }
 
     for (const [key, value] of Object.entries(statistics.overview)) {
         const element = document.querySelector(`[data-metric="${key}"]`);
@@ -123,6 +138,15 @@ async function mountDashboard() {
 
 function renderLists(statistics) {
     document.querySelector("#dashboard-lists").innerHTML = [
+        listCard({
+            icon: "activity",
+            title: "Atividade recente",
+            subtitle: "Cânticos criados ou atualizados",
+            songs: statistics.recentlyUpdatedSongs ?? statistics.recentlyAddedSongs,
+            detail: (song) => song.updatedAt
+                ? `Atualizado em ${formatDate(song.updatedAt)}`
+                : formatDate(song.createdAt)
+        }),
         listCard({
             icon: "clock-history",
             title: "Últimos cânticos adicionados",

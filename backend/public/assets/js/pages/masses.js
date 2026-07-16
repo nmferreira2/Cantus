@@ -14,12 +14,12 @@ import { escapeHtml } from "../utils/format.js";
 import { formatDateTime } from "../utils/masses.js";
 
 const columns = [
-    { key: "date", label: "Data e hora" },
-    { key: "celebration", label: "Celebração" },
-    { key: "church", label: "Igreja" },
-    { key: "season", label: "Tempo litúrgico" },
-    { key: "songs", label: "Cânticos" },
-    { key: "status", label: "Estado" },
+    { key: "date", label: "Data e hora", sortable: true },
+    { key: "celebration", label: "Celebração", sortable: true },
+    { key: "church", label: "Igreja", sortable: true },
+    { key: "season", label: "Tempo litúrgico", sortable: true },
+    { key: "songs", label: "Cânticos", sortable: true },
+    { key: "status", label: "Estado", sortable: true },
     { key: "actions", label: '<span class="visually-hidden">Ações</span>' }
 ];
 
@@ -45,7 +45,10 @@ async function mount() {
         search: query.get("search") ?? "",
         status: ["current", "upcoming", "past", "archived"].includes(query.get("status")) ? query.get("status") : "current",
         seasonId: query.get("seasonId") ?? "",
-        page: 1, pageSize: 10, sortOrder: "asc"
+        page: positiveInteger(query.get("page"), 1),
+        pageSize: 10,
+        sortBy: ["date", "celebration", "church", "season", "songs", "status"].includes(query.get("sortBy")) ? query.get("sortBy") : "date",
+        sortOrder: ["asc", "desc"].includes(query.get("sortOrder")) ? query.get("sortOrder") : "asc"
     };
     const references = await getMassReferences();
     document.querySelector("#mass-season").insertAdjacentHTML("beforeend", references.seasons.map((season) => `<option value="${escapeHtml(season.id)}">${escapeHtml(season.name)}</option>`).join(""));
@@ -56,7 +59,8 @@ async function mount() {
     let timer;
     const loadList = async () => {
         const target = document.querySelector("#masses-result"); target.innerHTML = loadingState("A carregar missas…");
-        try { const response = await getMasses(state); state.page = response.pagination.page; renderList(response); }
+        syncUrl(state);
+        try { const response = await getMasses(state); state.page = response.pagination.page; renderList(response); syncUrl(state); }
         catch (error) { target.innerHTML = `<div class="inline-state text-danger">${escapeHtml(error.message)}</div>`; }
     };
     const loadCalendar = async () => {
@@ -87,8 +91,18 @@ async function mount() {
         state.status = document.querySelector("#mass-status").value; state.seasonId = document.querySelector("#mass-season").value; state.page = 1; loadList();
     }));
     document.querySelector("#masses-result").addEventListener("click", async (event) => {
-        const page = event.target.closest("[data-page]"); const archive = event.target.closest("[data-archive-mass]"); const restore = event.target.closest("[data-restore-mass]");
-        if (page && !page.disabled) { state.page = Number(page.dataset.page); await loadList(); }
+        const sort = event.target.closest("[data-sort]");
+        const page = event.target.closest("[data-page]");
+        const archive = event.target.closest("[data-archive-mass]");
+        const restore = event.target.closest("[data-restore-mass]");
+        if (sort) {
+            const sortBy = sort.dataset.sort;
+            state.sortOrder = state.sortBy === sortBy && state.sortOrder === "asc" ? "desc" : "asc";
+            state.sortBy = sortBy;
+            state.page = 1;
+            await loadList();
+        }
+        else if (page && !page.disabled) { state.page = Number(page.dataset.page); await loadList(); }
         else if (archive || restore) await toggleArchive(archive || restore, Boolean(restore), loadList);
     });
     document.querySelector("[data-calendar-previous]").addEventListener("click", async () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); await loadCalendar(); });
@@ -101,6 +115,8 @@ function renderList(response) {
     document.querySelector("#masses-result").innerHTML = `${dataTable({
         columns,
         rows: response.data.map(massRow),
+        sortBy: response.sort?.by ?? "date",
+        sortOrder: response.sort?.order ?? "asc",
         emptyContent: emptyState({ icon: "calendar3", title: "Nenhuma missa encontrada", description: "Planeie a próxima celebração.", action: '<a href="/masses/new" class="btn btn-outline-primary" data-link>Planear missa</a>' })
     })}${pagination(response.pagination)}`;
 }
@@ -123,6 +139,36 @@ function renderCalendar(month, masses) {
         cells.push(`<div class="calendar-day"><span class="calendar-date">${day}</span>${events.map((mass) => `<a href="/masses/${encodeURIComponent(mass.id)}" class="calendar-event" data-link><strong>${new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(new Date(mass.startsAt))}</strong><span>${escapeHtml(mass.celebration?.name || mass.church)}</span></a>`).join("")}</div>`);
     }
     document.querySelector("#mass-calendar").innerHTML = `<div class="calendar-weekdays">${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-grid">${cells.join("")}</div>`;
+}
+
+function syncUrl(state) {
+    const query = new URLSearchParams();
+    const defaults = {
+        page: 1,
+        sortBy: "date",
+        sortOrder: "asc",
+        status: "current"
+    };
+
+    Object.entries(state).forEach(([key, value]) => {
+        if (key === "pageSize") {
+            return;
+        }
+        if (value !== "" && value !== defaults[key]) {
+            query.set(key, value);
+        }
+    });
+
+    window.history.replaceState(
+        {},
+        "",
+        `/masses${query.size ? `?${query}` : ""}`
+    );
+}
+
+function positiveInteger(value, fallback) {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 async function toggleArchive(button, restoring, reload) {

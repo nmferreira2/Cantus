@@ -24,7 +24,7 @@ export async function findAll(query) {
     const [data, total] = await prisma.$transaction([
         prisma.mass.findMany({
             where,
-            orderBy: { startsAt: query.sortOrder },
+            orderBy: massOrderBy(query),
             skip: (query.page - 1) * query.pageSize,
             take: query.pageSize,
             include: massInclude
@@ -32,6 +32,23 @@ export async function findAll(query) {
         prisma.mass.count({ where })
     ]);
     return { data, total };
+}
+
+function massOrderBy(query) {
+    const direction = query.sortOrder;
+    const primary = {
+        date: { startsAt: direction },
+        celebration: { celebration: { name: direction } },
+        church: { church: direction },
+        season: { season: { name: direction } },
+        songs: { songs: { _count: direction } },
+        status: { active: direction }
+    }[query.sortBy] ?? { startsAt: direction };
+
+    return [
+        primary,
+        ...(query.sortBy === "date" ? [] : [{ startsAt: "asc" }])
+    ];
 }
 
 export function findCalendar(from, to) {

@@ -8,7 +8,8 @@ import {
 import { parseComposerMerge } from "../src/validators/composer.validator.js";
 import {
     parseCalendarQuery,
-    parseMass
+    parseMass,
+    parseMassQuery
 } from "../src/validators/mass.validator.js";
 import {
     parseScore,
@@ -112,6 +113,25 @@ test("Mass validation normalizes song slots and rejects unknown slots", () => {
             songs: { PROCESSION: "song-1" }
         }),
         (error) => error.status === 422
+    );
+});
+
+test("Mass query validation accepts sortable columns", () => {
+    assert.deepEqual(
+        parseMassQuery({ sortBy: "celebration", sortOrder: "desc", page: "2" }),
+        {
+            search: "",
+            page: 2,
+            pageSize: 10,
+            sortBy: "celebration",
+            sortOrder: "desc",
+            status: "current",
+            seasonId: ""
+        }
+    );
+    assert.throws(
+        () => parseMassQuery({ sortBy: "unknown" }),
+        (error) => error.status === 400 && Boolean(error.details.sortBy)
     );
 });
 

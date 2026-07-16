@@ -7,7 +7,7 @@ test("parseSongQuery supplies stable pagination and sorting defaults", () => {
     assert.deepEqual(parseSongQuery(), {
         search: "",
         page: 1,
-        pageSize: 10,
+        pageSize: 10000,
         sortBy: "title",
         sortOrder: "asc",
         status: "current",

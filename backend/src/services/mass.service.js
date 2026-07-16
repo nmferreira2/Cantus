@@ -3,7 +3,10 @@ import * as fileRepository from "../repositories/file.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { paginatedResponse } from "../utils/pagination.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { CELEBRATION_PDF_SLOTS } from "../utils/mass.constants.js";
+import {
+    CELEBRATION_PDF_SLOTS,
+    MASS_SONG_SLOTS
+} from "../utils/mass.constants.js";
 
 export async function getMasses(query) {
     const result = await repository.findAll(query);
@@ -11,7 +14,13 @@ export async function getMasses(query) {
     if (response.pagination.page !== query.page && result.total > 0) {
         return getMasses({ ...query, page: response.pagination.page });
     }
-    return response;
+    return {
+        ...response,
+        sort: {
+            by: query.sortBy,
+            order: query.sortOrder
+        }
+    };
 }
 
 export function getCalendar(query) {
@@ -107,6 +116,35 @@ export async function generateCelebrationPdf(id) {
     };
 }
 
+export async function generateCelebrationText(id) {
+    const mass = await getMass(id);
+    const bySlot = new Map(mass.songs.map((item) => [item.slot, item.song]));
+    const lines = [
+        mass.celebration?.name || "Missa",
+        formatTextDate(mass.startsAt),
+        mass.church ? `Igreja: ${mass.church}` : "",
+        mass.season?.name ? `Tempo litúrgico: ${mass.season.name}` : "",
+        mass.presider ? `Presidente: ${mass.presider}` : "",
+        mass.choir ? `Coro: ${mass.choir}` : "",
+        "",
+        "Plano musical"
+    ].filter((line) => line !== "");
+
+    MASS_SONG_SLOTS.forEach((slot) => {
+        const song = bySlot.get(slot);
+        lines.push(`${slotLabel(slot)} - ${song ? songText(song) : "Sem cântico selecionado"}`);
+    });
+
+    if (mass.comments) {
+        lines.push("", "Observações", mass.comments);
+    }
+
+    return {
+        content: `${lines.join("\n")}\n`,
+        filename: celebrationFilename(mass).replace(/\.pdf$/i, ".txt")
+    };
+}
+
 function selectCelebrationScore(scores) {
     return scores.find(({ category }) => category === "CHOIR") ?? scores[0] ?? null;
 }
@@ -158,6 +196,7 @@ function slotLabel(slot) {
     return {
         ENTRANCE: "Entrada",
         PENITENTIAL: "Ato Penitencial",
+        ASPERSION: "Rito da Aspersão",
         GLORIA: "Glória",
         PSALM: "Salmo",
         ALLELUIA: "Aleluia",
@@ -168,6 +207,21 @@ function slotLabel(slot) {
         THANKSGIVING: "Ação de Graças",
         FINAL: "Final"
     }[slot] ?? slot;
+}
+
+function songText(song) {
+    const extras = [
+        song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
+        song.harmonizerName ? `Harm.: ${song.harmonizerName}` : ""
+    ].filter(Boolean);
+    return `${song.title} [${song.composerName}${extras.length ? `; ${extras.join("; ")}` : ""}]`;
+}
+
+function formatTextDate(value) {
+    return new Intl.DateTimeFormat("pt-PT", {
+        dateStyle: "full",
+        timeStyle: "short"
+    }).format(new Date(value));
 }
 
 async function validateReferences(payload) {

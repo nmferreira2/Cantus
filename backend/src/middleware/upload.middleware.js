@@ -4,7 +4,7 @@ import { AppError } from "../utils/app-error.js";
 export const uploadSongDocument = singleFileUpload(10 * 1024 * 1024);
 export const uploadScoreDocument = singleFileUpload(20 * 1024 * 1024);
 export const uploadLogoImage = singleFileUpload(2 * 1024 * 1024);
-export const uploadComposerImage = singleFileUpload(5 * 1024 * 1024);
+export const uploadComposerImage = singleFileUpload(15 * 1024 * 1024);
 
 function singleFileUpload(maximumSize) {
     const upload = multer({

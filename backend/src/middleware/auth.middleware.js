@@ -45,7 +45,7 @@ export function requireOwnContributorOrPermission(permission) {
 export function requirePermissionForArchived(permission) {
     return (req, res, next) => {
         if (
-            !["archived", "inactiveOrArchived"].includes(req.query.status)
+            !["all", "archived", "inactiveOrArchived"].includes(req.query.status)
             || hasPermission(req.user, permission)
         ) {
             return next();

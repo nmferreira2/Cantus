@@ -19,7 +19,7 @@ export function parseSongQuery(query = {}) {
     const parsed = {
         search: parseText(query.search, 100, "search", errors),
         page: parseInteger(query.page, 1, 1, Number.MAX_SAFE_INTEGER, "page", errors),
-        pageSize: parseInteger(query.pageSize, 10, 1, 100, "pageSize", errors),
+        pageSize: parseInteger(query.pageSize, 10000, 1, 10000, "pageSize", errors),
         sortBy: query.sortBy ?? "title",
         sortOrder: query.sortOrder ?? "asc",
         status: query.status ?? "current",

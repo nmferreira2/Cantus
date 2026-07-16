@@ -1,4 +1,4 @@
-import { apiRequest } from "./client.js";
+import { ApiError, apiRequest } from "./client.js";
 
 export function getSongs(options = {}) {
     const query = new URLSearchParams();
@@ -34,6 +34,37 @@ export async function getAllSongs(options = {}) {
 
 export function getSong(id) {
     return apiRequest(`/api/songs/${encodeURIComponent(id)}`);
+}
+
+export async function getSongListPdf(options = {}) {
+    const query = new URLSearchParams();
+    Object.entries(options).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+            query.set(key, value);
+        }
+    });
+
+    const response = await fetch(`/api/songs/export/pdf${query.size ? `?${query}` : ""}`);
+    if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401) {
+            window.dispatchEvent(new CustomEvent("cantus:unauthorized"));
+        }
+        throw new ApiError(
+            payload?.error?.message || "Não foi possível exportar a listagem de cânticos.",
+            response.status,
+            payload?.error?.details
+        );
+    }
+
+    const disposition = response.headers.get("content-disposition") ?? "";
+    const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    return {
+        blob: await response.blob(),
+        filename: encodedName
+            ? decodeURIComponent(encodedName)
+            : "canticos.pdf"
+    };
 }
 
 export function createSong(song) {

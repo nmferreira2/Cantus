@@ -19,7 +19,7 @@ export function massFormPage(id = null) {
             <section class="page-heading"><div><p class="eyebrow">Planeamento da missa</p><h2>${editing ? "Editar missa" : "Planear missa"}</h2><p class="page-description">Defina a celebração e escolha os cânticos do repertório.</p></div><a href="${editing ? `/masses/${encodeURIComponent(id)}` : "/masses"}" class="btn btn-light" data-link><i class="bi bi-arrow-left"></i> Cancelar</a></section>
             <form id="mass-form" class="card-surface form-card" novalidate><div id="form-alert"></div><fieldset disabled>
                 <div class="form-section"><div><h3>Celebração</h3><p>Data, local e contexto litúrgico.</p></div><div class="form-grid">
-                    ${inputField({ name: "startsAt", label: "Data e hora", type: "datetime-local", required: true })}
+                    ${startsAtField()}
                     ${inputField({ name: "church", label: "Igreja", placeholder: "S. Salvador de Fornelos" })}
                     ${inputField({ name: "celebrationName", label: "Celebração", placeholder: "Ex.: Domingo VII do Tempo Comum" })}
                     <div class="form-field"><label class="form-label" for="seasonId">Tempo litúrgico</label><select id="seasonId" name="seasonId" class="form-select"></select></div>
@@ -53,12 +53,21 @@ async function mount(id) {
         form.querySelector("fieldset").disabled = false;
     } catch (error) { showError(error.message); return; }
     form.addEventListener("submit", async (event) => {
-        event.preventDefault(); form.classList.add("was-validated"); if (!form.checkValidity()) return;
+        event.preventDefault();
+        form.elements.startsAt.setCustomValidity("");
+        const startsAt = parseStartsAt(form.elements.startsAt.value);
+        if (!startsAt) {
+            form.elements.startsAt.setCustomValidity(
+                "Indique uma data e hora válidas no formato dd/mm/aaaa HH:mm."
+            );
+        }
+        form.classList.add("was-validated");
+        if (!form.checkValidity()) return;
         const button = form.querySelector('button[type="submit"]'); toggle(button, true);
         try {
             const songs = Object.fromEntries(MASS_SLOTS.map(([slot]) => [slot, form.elements[`slot-${slot}`].value]).filter(([, songId]) => songId));
             const data = {
-                startsAt: new Date(form.elements.startsAt.value).toISOString(),
+                startsAt: startsAt.toISOString(),
                 church: form.elements.church.value,
                 celebrationName: form.elements.celebrationName.value,
                 seasonId: form.elements.seasonId.value,
@@ -90,12 +99,62 @@ function fillOptions(form, references, songs) {
 }
 
 function fillMass(form, mass) {
-    const local = new Date(new Date(mass.startsAt).getTime() - new Date(mass.startsAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    form.elements.startsAt.value = local;
+    form.elements.startsAt.value = formatStartsAt(mass.startsAt);
     ["church", "seasonId", "presider", "choir", "comments"].forEach((field) => { form.elements[field].value = mass[field] ?? ""; });
     form.elements.celebrationName.value = mass.celebration?.name ?? "";
     form.elements.active.checked = mass.active;
     mass.songs.forEach(({ slot, songId }) => { form.elements[`slot-${slot}`].value = songId; });
+}
+
+function startsAtField() {
+    return `
+        <div class="form-field">
+            <label class="form-label" for="startsAt">Data e hora <span aria-hidden="true">*</span></label>
+            <input
+                class="form-control"
+                id="startsAt"
+                name="startsAt"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="dd/mm/aaaa HH:mm"
+                pattern="(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4} ([01][0-9]|2[0-3]):[0-5][0-9]"
+                required
+            >
+            <div class="invalid-feedback">Indique uma data e hora válidas no formato dd/mm/aaaa HH:mm.</div>
+        </div>
+    `;
+}
+
+function parseStartsAt(value) {
+    const match = /^(\d{2})\/(\d{2})\/(\d{4}) ([01]\d|2[0-3]):([0-5]\d)$/
+        .exec(value.trim());
+    if (!match) {
+        return null;
+    }
+
+    const [, day, month, year, hour, minute] = match.map(Number);
+    const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+    if (
+        date.getFullYear() !== year
+        || date.getMonth() !== month - 1
+        || date.getDate() !== day
+        || date.getHours() !== hour
+        || date.getMinutes() !== minute
+    ) {
+        return null;
+    }
+    return date;
+}
+
+function formatStartsAt(value) {
+    const date = new Date(value);
+    const pad = (part) => String(part).padStart(2, "0");
+    return [
+        pad(date.getDate()),
+        pad(date.getMonth() + 1),
+        date.getFullYear()
+    ].join("/") + ` ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function showError(message) { const target = document.querySelector("#form-alert"); target.innerHTML = '<div class="alert alert-danger"></div>'; target.firstElementChild.textContent = message; }

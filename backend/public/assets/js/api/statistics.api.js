@@ -1,5 +1,5 @@
 import { apiRequest } from "./client.js";
 
 export function getStatistics() {
-    return apiRequest("/api/statistics");
+    return apiRequest("/api/statistics", { cache: "no-store" });
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
     archiveMass,
     createMass,
+    exportCelebrationText,
     generateCelebrationPdf,
     getCalendar,
     getMass,
@@ -38,6 +39,7 @@ router.post(
 router.get("/calendar", validateCalendarQuery, getCalendar);
 router.get("/references", getReferences);
 router.get("/:id/celebration-pdf", generateCelebrationPdf);
+router.get("/:id/celebration-text", exportCelebrationText);
 router.patch(
     "/:id/restore",
     requirePermission(PERMISSIONS.MANAGE_MASSES),

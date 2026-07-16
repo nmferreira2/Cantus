@@ -71,3 +71,28 @@ export async function getCelebrationPdf(id) {
             : "celebracao.pdf"
     };
 }
+
+export async function getCelebrationText(id) {
+    const url = `/api/masses/${encodeURIComponent(id)}/celebration-text`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401) {
+            window.dispatchEvent(new CustomEvent("cantus:unauthorized"));
+        }
+        throw new ApiError(
+            payload?.error?.message || "Não foi possível exportar o planeamento.",
+            response.status,
+            payload?.error?.details
+        );
+    }
+
+    const disposition = response.headers.get("content-disposition") ?? "";
+    const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    return {
+        blob: await response.blob(),
+        filename: encodedName
+            ? decodeURIComponent(encodedName)
+            : "planeamento.txt"
+    };
+}

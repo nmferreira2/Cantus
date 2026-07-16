@@ -84,10 +84,14 @@ export function parseMassQuery(query = {}) {
         search: typeof query.search === "string" ? query.search.trim().slice(0, 100) : "",
         page: integer(query.page, 1, 1, Number.MAX_SAFE_INTEGER, "page", errors),
         pageSize: integer(query.pageSize, 10, 1, 100, "pageSize", errors),
+        sortBy: query.sortBy ?? "date",
         sortOrder: query.sortOrder ?? "asc",
         status: query.status ?? "current",
         seasonId: typeof query.seasonId === "string" ? query.seasonId : ""
     };
+    if (!["date", "celebration", "church", "season", "songs", "status"].includes(parsed.sortBy)) {
+        errors.sortBy = "O campo de ordenação é inválido.";
+    }
     if (!["asc", "desc"].includes(parsed.sortOrder)) {
         errors.sortOrder = "A ordem é inválida.";
     }

@@ -13,6 +13,7 @@ export function validateImageUpload(file, subject = "imagem") {
         ),
         ".jpg": file.buffer[0] === 0xff && file.buffer[1] === 0xd8,
         ".jpeg": file.buffer[0] === 0xff && file.buffer[1] === 0xd8,
+        ".jfif": file.buffer[0] === 0xff && file.buffer[1] === 0xd8,
         ".webp": file.buffer.subarray(0, 4).toString("ascii") === "RIFF"
             && file.buffer.subarray(8, 12).toString("ascii") === "WEBP"
     };
@@ -20,7 +21,7 @@ export function validateImageUpload(file, subject = "imagem") {
     if (!signatures[extension]) {
         throw new AppError(
             415,
-            `A ${subject} deve ser uma imagem PNG, JPEG ou WebP válida.`
+            `A ${subject} deve ser uma imagem PNG, JPEG/JFIF ou WebP válida.`
         );
     }
 

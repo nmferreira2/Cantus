@@ -12,6 +12,7 @@ export async function getStatistics() {
         massDates,
         mostUsed,
         recent,
+        recentlyUpdated,
         leastRecentlyUsed,
         nextMass
     ] = await Promise.all([
@@ -21,6 +22,7 @@ export async function getStatistics() {
         repository.getMassDates(from),
         repository.getMostUsedSongs(),
         repository.getRecentlyAddedSongs(),
+        repository.getRecentlyUpdatedSongs(),
         repository.getLeastRecentlyUsedSongs(),
         repository.getNextMass()
     ]);
@@ -37,6 +39,7 @@ export async function getStatistics() {
         },
         mostUsedSongs: mostUsed.map(presentSongTypes),
         recentlyAddedSongs: recent.map(presentSongTypes),
+        recentlyUpdatedSongs: recentlyUpdated.map(presentSongTypes),
         leastRecentlyUsedSongs: leastRecentlyUsed.map(presentSongTypes),
         nextMass: nextMass
             ? {

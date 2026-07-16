@@ -1,6 +1,7 @@
 import {
     archiveMass,
     getCelebrationPdf,
+    getCelebrationText,
     getMass
 } from "../api/masses.api.js";
 import { confirmDialog } from "../components/modal.js";
@@ -18,7 +19,7 @@ export function massDetailsPage(id) {
 function render(mass) {
     const bySlot = new Map(mass.songs.map((item) => [item.slot, item.song]));
     document.querySelector("#mass-detail").innerHTML = `
-        <section class="page-heading"><div><a href="/masses" class="back-link" data-link><i class="bi bi-arrow-left"></i> Missas</a><div class="d-flex gap-2 mt-3 mb-2">${mass.season ? `<span class="type-badge">${escapeHtml(mass.season.name)}</span>` : ""}${statusBadge(mass.active)}</div><h2>${escapeHtml(mass.celebration?.name || "Missa")}</h2><p class="page-description">${formatDateTime(mass.startsAt)} · ${escapeHtml(mass.church)}</p></div><div class="d-flex gap-2"><button id="celebration-pdf" class="btn btn-light" type="button"><i class="bi bi-file-earmark-pdf"></i> Gerar PDF da celebração</button>${can(PERMISSIONS.MANAGE_MASSES) ? `<a href="/masses/${encodeURIComponent(mass.id)}/edit" class="btn btn-primary" data-link><i class="bi bi-pencil"></i> Editar plano</a><button id="archive-mass" class="btn btn-light text-danger"><i class="bi bi-archive"></i> Arquivar</button>` : ""}</div></section>
+        <section class="page-heading"><div><a href="/masses" class="back-link" data-link><i class="bi bi-arrow-left"></i> Missas</a><div class="d-flex gap-2 mt-3 mb-2">${mass.season ? `<span class="type-badge">${escapeHtml(mass.season.name)}</span>` : ""}${statusBadge(mass.active)}</div><h2>${escapeHtml(mass.celebration?.name || "Missa")}</h2><p class="page-description">${formatDateTime(mass.startsAt)} · ${escapeHtml(mass.church)}</p></div><div class="d-flex gap-2"><button id="celebration-text" class="btn btn-light" type="button"><i class="bi bi-file-earmark-text"></i> Exportar texto</button><button id="celebration-pdf" class="btn btn-light" type="button"><i class="bi bi-file-earmark-pdf"></i> Gerar PDF da celebração</button>${can(PERMISSIONS.MANAGE_MASSES) ? `<a href="/masses/${encodeURIComponent(mass.id)}/edit" class="btn btn-primary" data-link><i class="bi bi-pencil"></i> Editar plano</a><button id="archive-mass" class="btn btn-light text-danger"><i class="bi bi-archive"></i> Arquivar</button>` : ""}</div></section>
         <div class="detail-grid"><section class="card-surface detail-card"><div class="card-heading"><span class="card-heading-icon"><i class="bi bi-music-note-list"></i></span><div><h3>Plano musical</h3><p>${mass.songs.length} cânticos selecionados</p></div></div><div class="mass-plan-list">${MASS_SLOTS.map(([slot]) => planRow(slot, bySlot.get(slot))).join("")}</div></section>
         <div class="detail-stack"><section class="card-surface detail-card"><div class="card-heading"><span class="card-heading-icon"><i class="bi bi-calendar-event"></i></span><div><h3>Detalhes da celebração</h3><p>Dados do planeamento</p></div></div><dl class="info-list single-column">${info("Data e hora", formatDateTime(mass.startsAt))}${info("Igreja", mass.church)}${info("Presidente", mass.presider)}${info("Coro", mass.choir)}${info("Criada em", formatDate(mass.createdAt))}</dl>${mass.comments ? `<div class="long-text"><h4>Observações</h4><p>${escapeHtml(mass.comments).replaceAll("\n", "<br>")}</p></div>` : ""}</section></div></div>
     `;
@@ -53,17 +54,25 @@ function bind(mass) {
         try { await archiveMass(mass.id); setFlash("Missa arquivada."); router.navigate("/masses?status=archived"); }
         catch (error) { showToast(error.message, "danger"); event.currentTarget.disabled = false; }
     });
+    document.querySelector("#celebration-text").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+            const text = await getCelebrationText(mass.id);
+            downloadBlob(text.blob, text.filename);
+            showToast("Planeamento exportado em texto.");
+        } catch (error) {
+            showToast(error.message, "danger");
+        } finally {
+            button.disabled = false;
+        }
+    });
     document.querySelector("#celebration-pdf").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         button.disabled = true;
         try {
             const pdf = await getCelebrationPdf(mass.id);
-            const url = URL.createObjectURL(pdf.blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = pdf.filename;
-            link.click();
-            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            downloadBlob(pdf.blob, pdf.filename);
             showToast("PDF da celebração gerado com sucesso.");
         } catch (error) {
             showToast(error.message, "danger");
@@ -71,6 +80,15 @@ function bind(mass) {
             button.disabled = false;
         }
     });
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function info(label, value) { return `<div><dt>${label}</dt><dd>${escapeHtml(value || "—")}</dd></div>`; }

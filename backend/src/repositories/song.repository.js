@@ -34,6 +34,8 @@ const listSelection = {
     harmonizerName: true,
     originalKey: true,
     language: true,
+    lyrics: true,
+    notes: true,
     active: true,
     createdAt: true,
     updatedAt: true,
@@ -134,6 +136,27 @@ export async function getAllSongs(query) {
         })),
         total
     };
+}
+
+export async function getSongsForExport(query) {
+    const where = buildSongWhere(query);
+    const orderBy = [
+        { [query.sortBy]: query.sortOrder },
+        ...(query.sortBy === "title" ? [] : [{ title: "asc" }])
+    ];
+
+    const songs = await prisma.song.findMany({
+        where,
+        orderBy,
+        select: listSelection
+    });
+
+    return songs.map(({ _count, tagLinks: links, types, ...song }) => ({
+        ...song,
+        songTypes: types.map(({ type }) => type),
+        tags: links.map(({ tag }) => tag),
+        attachmentCount: _count.attachments
+    }));
 }
 
 export async function getSongById(id) {
@@ -264,36 +287,27 @@ export function hardDeleteSong(id) {
 
 function buildSongWhere(query) {
     const archived = query.status === "archived";
+    if (query.status === "all") {
+        return withSongFilters({}, query);
+    }
     if (query.status === "inactiveOrArchived") {
-        return {
+        return withSongFilters({
             OR: [
                 { deletedAt: { not: null } },
                 { deletedAt: null, active: false }
-            ],
-            ...(query.songType ? { types: { some: { type: query.songType } } } : {}),
-            ...(query.language ? { language: query.language } : {}),
-            ...(query.tagId ? { tagLinks: { some: { tagId: query.tagId } } } : {}),
-            ...(query.search
-                ? {
-                    AND: [{
-                        OR: [
-                            { title: { contains: query.search } },
-                            { subtitle: { contains: query.search } },
-                            { composerName: { contains: query.search } },
-                            { arrangerName: { contains: query.search } },
-                            { harmonizerName: { contains: query.search } },
-                            { language: { contains: query.search } },
-                            { notes: { contains: query.search } }
-                        ]
-                    }]
-                }
-                : {})
-        };
+            ]
+        }, query);
     }
-    return {
+    return withSongFilters({
         deletedAt: archived ? { not: null } : null,
         ...(query.status === "active" ? { active: true } : {}),
-        ...(query.status === "inactive" ? { active: false } : {}),
+        ...(query.status === "inactive" ? { active: false } : {})
+    }, query);
+}
+
+function withSongFilters(base, query) {
+    return {
+        ...base,
         ...(query.songType ? { types: { some: { type: query.songType } } } : {}),
         ...(query.language ? { language: query.language } : {}),
         ...(query.tagId ? { tagLinks: { some: { tagId: query.tagId } } } : {}),

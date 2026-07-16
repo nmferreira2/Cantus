@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
     createSong,
     deleteSong,
+    exportSongListPdf,
     permanentlyDeleteSong,
     getAllSongs,
     getSongById,
@@ -28,6 +29,12 @@ router.get(
     requirePermissionForArchived(PERMISSIONS.DELETE_SONGS),
     validateSongQuery,
     getAllSongs
+);
+router.get(
+    "/export/pdf",
+    requirePermissionForArchived(PERMISSIONS.DELETE_SONGS),
+    validateSongQuery,
+    exportSongListPdf
 );
 router.post(
     "/",

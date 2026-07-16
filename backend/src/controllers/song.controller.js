@@ -5,6 +5,16 @@ export async function getAllSongs(req, res) {
     return res.json(songs);
 }
 
+export async function exportSongListPdf(req, res) {
+    const pdf = await service.generateSongListPdf(req.validatedQuery);
+    res.type("application/pdf");
+    res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(pdf.filename)}`
+    );
+    return res.send(pdf.buffer);
+}
+
 export async function createSong(req, res) {
     const song = await service.createSong(req.validatedBody);
     return res.status(201).json(song);

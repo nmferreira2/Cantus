@@ -69,8 +69,8 @@ export function songFormPage(songId = null) {
                                 <datalist id="composer-options"></datalist>
                                 <div class="invalid-feedback">O compositor é obrigatório.</div>
                             </div>
-                            ${inputField({ name: "arrangerName", label: "Arranjo" })}
-                            ${inputField({ name: "harmonizerName", label: "Harmonização" })}
+                            ${authorInput("arrangerName", "Arranjo", "Escolha ou escreva o autor do arranjo")}
+                            ${authorInput("harmonizerName", "Harmonização", "Escolha ou escreva o harmonizador")}
                             ${inputField({
                                 name: "originalKey",
                                 label: "Tonalidade original",
@@ -167,6 +167,24 @@ export function songFormPage(songId = null) {
         `,
         mount: () => mountSongForm(songId)
     };
+}
+
+function authorInput(name, label, placeholder) {
+    return `
+        <div class="form-field">
+            <label class="form-label" for="${name}">${label}</label>
+            <input
+                class="form-control"
+                id="${name}"
+                name="${name}"
+                type="text"
+                list="composer-options"
+                autocomplete="off"
+                placeholder="${placeholder}"
+            >
+            <div class="invalid-feedback"></div>
+        </div>
+    `;
 }
 
 async function mountSongForm(songId) {

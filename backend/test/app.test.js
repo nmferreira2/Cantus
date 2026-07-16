@@ -163,6 +163,14 @@ test("tags API is available and songs require a composer", async (context) => {
         new Set(["ENTRANCE", "FINAL"])
     );
 
+    const songListPdfResponse = await fetch(
+        `${baseUrl}/songs/export/pdf?search=${encodeURIComponent(title)}`,
+        { headers: { Cookie: cookie } }
+    );
+    assert.equal(songListPdfResponse.status, 200);
+    assert.equal(songListPdfResponse.headers.get("content-type"), "application/pdf");
+    assert.ok((await songListPdfResponse.arrayBuffer()).byteLength > 500);
+
     const secondCreateResponse = await fetch(`${baseUrl}/songs`, {
         method: "POST",
         headers: {
@@ -243,6 +251,7 @@ test("tags API is available and songs require a composer", async (context) => {
     const statistics = await statisticsResponse.json();
     assert.ok(Array.isArray(statistics.charts.songsByType));
     assert.ok(Array.isArray(statistics.charts.songsByLiturgicalTime));
+    assert.ok(Array.isArray(statistics.recentlyUpdatedSongs));
     assert.equal(statistics.charts.songsByLanguage, undefined);
 
     const prematureDeleteResponse = await fetch(
@@ -443,6 +452,13 @@ test("permissions, score categories, soft deletion and celebration PDF", async (
     const mass = await massResponse.json();
     created.massId = mass.id;
 
+    const sortedMassesResponse = await fetch(
+        `${baseUrl}/masses?sortBy=songs&sortOrder=desc`,
+        { headers: { Cookie: adminCookie } }
+    );
+    assert.equal(sortedMassesResponse.status, 200);
+    assert.equal((await sortedMassesResponse.json()).sort.by, "songs");
+
     const pdfResponse = await fetch(
         `${baseUrl}/masses/${mass.id}/celebration-pdf`,
         { headers: { Cookie: restrictedCookie } }
@@ -450,6 +466,14 @@ test("permissions, score categories, soft deletion and celebration PDF", async (
     assert.equal(pdfResponse.status, 200);
     assert.equal(pdfResponse.headers.get("content-type"), "application/pdf");
     assert.ok((await pdfResponse.arrayBuffer()).byteLength > 100);
+
+    const textResponse = await fetch(
+        `${baseUrl}/masses/${mass.id}/celebration-text`,
+        { headers: { Cookie: restrictedCookie } }
+    );
+    assert.equal(textResponse.status, 200);
+    assert.match(textResponse.headers.get("content-type"), /text\/plain/);
+    assert.match(await textResponse.text(), /Plano musical/);
 
     const deleteVersionResponse = await fetch(
         `${baseUrl}/scores/${score.id}/versions/${score.versions[0].id}`,
@@ -638,8 +662,8 @@ test("new celebrations, default church and composer profiles are persisted", asy
     const photoBody = new FormData();
     photoBody.append(
         "file",
-        new Blob([samplePng()], { type: "image/png" }),
-        "compositor.png"
+        new Blob([sampleJpeg()], { type: "image/jpeg" }),
+        "compositor.jfif"
     );
     const photoResponse = await fetch(
         `${baseUrl}/composers/${encodeURIComponent(composerName)}/photo`,
@@ -661,7 +685,7 @@ test("new celebrations, default church and composer profiles are persisted", asy
         { headers: { Cookie: cookie } }
     );
     assert.equal(servedPhoto.status, 200);
-    assert.ok((await servedPhoto.arrayBuffer()).byteLength > 20);
+    assert.ok((await servedPhoto.arrayBuffer()).byteLength > 3);
 
     const celebrationName = `Celebração temporária ${suffix}`;
     const massResponse = await fetch(`${baseUrl}/masses`, {
@@ -706,11 +730,8 @@ async function samplePdf() {
     return document.save();
 }
 
-function samplePng() {
-    return Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-        "base64"
-    );
+function sampleJpeg() {
+    return Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
 }
 
 async function scoreForm(baseUrl, cookie, song, pdf, category) {

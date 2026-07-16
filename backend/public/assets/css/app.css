@@ -586,6 +586,174 @@ a.sidebar-link:hover {
     font-size: 0.68rem;
 }
 
+.song-card-sort {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--cantus-border);
+    color: var(--cantus-muted);
+    font-size: 0.74rem;
+}
+
+.song-card-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(20px, 3vw, 38px);
+    padding: clamp(22px, 3vw, 38px);
+    background: #f4f5f7;
+}
+
+.song-card-item {
+    position: relative;
+    display: grid;
+    min-height: 260px;
+    align-content: start;
+    gap: 14px;
+    padding: 26px 28px 22px;
+    overflow: hidden;
+    border: 1px solid rgba(228, 231, 236, 0.72);
+    border-radius: 28px;
+    background: #fbfbfd;
+    box-shadow: 0 18px 36px rgba(36, 39, 46, 0.14);
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.song-card-item:hover {
+    border-color: #d8d4f5;
+    transform: translateY(-2px);
+    box-shadow: 0 22px 44px rgba(36, 39, 46, 0.17);
+}
+
+.song-card-main,
+.song-card-meta {
+    min-width: 0;
+}
+
+.song-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.song-card-title {
+    color: #28385e;
+    letter-spacing: -0.02em;
+    font-family: inherit;
+    font-size: 1.12rem;
+    font-weight: 680;
+    line-height: 1.25;
+}
+
+.song-card-title:hover {
+    color: var(--cantus-primary);
+}
+
+.song-card-author {
+    margin-top: 7px;
+    color: #39425f;
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+
+.song-card-author small {
+    display: block;
+    margin-top: 3px;
+    color: var(--cantus-muted);
+    font-size: 0.72rem;
+}
+
+.song-card-type-line {
+    margin: 12px 0 0;
+    color: #4f5b7a;
+    font-size: 0.78rem;
+}
+
+.song-card-excerpt {
+    display: -webkit-box;
+    min-height: 66px;
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: #1f2c4b;
+    font-size: 0.84rem;
+    line-height: 1.42;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+}
+
+.song-card-tags {
+    display: flex;
+    max-height: 24px;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+.song-card-tags a {
+    padding: 3px 6px;
+    border-radius: 999px;
+    color: #727780;
+    background: #f1f2f4;
+    font-size: 0.66rem;
+    font-weight: 650;
+}
+
+.song-card-tags a:hover,
+.song-liturgical-times a.type-badge:hover {
+    color: var(--cantus-primary-dark);
+    background: #e5e2ff;
+}
+
+.song-card-meta {
+    display: flex;
+    min-height: 34px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    margin-top: auto;
+}
+
+.song-card-type-badges {
+    display: none;
+}
+
+.song-card-meta small {
+    color: var(--cantus-muted);
+    font-size: 0.68rem;
+}
+
+.song-card-actions {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    opacity: 0.65;
+    transition: opacity 160ms ease;
+}
+
+.song-card-item:hover .song-card-actions {
+    opacity: 1;
+}
+
+.song-card-actions .row-actions {
+    gap: 2px;
+}
+
+.song-card-actions .icon-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    color: #e57984;
+    background: transparent;
+}
+
+.song-card-actions .icon-button:hover {
+    border-color: #ffd5dc;
+    color: #d95d6c;
+    background: #fff6f8;
+}
+
 .type-badge,
 .status-badge {
     display: inline-flex;
@@ -2287,6 +2455,10 @@ a.sidebar-link:hover {
     .statistics-metrics {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .song-card-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 991.98px) {
@@ -2402,6 +2574,27 @@ a.sidebar-link:hover {
 
     .song-detail-heading .d-flex .btn {
         flex: 1;
+    }
+
+    .song-card-item {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .song-card-list {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding: 18px;
+    }
+
+    .song-card-actions {
+        position: static;
+        margin-top: 2px;
+        justify-self: stretch;
+    }
+
+    .song-card-actions .row-actions {
+        justify-content: flex-start;
     }
 }
 

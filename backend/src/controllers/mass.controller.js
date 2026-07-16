@@ -42,3 +42,13 @@ export async function generateCelebrationPdf(req, res) {
     );
     return res.send(pdf.buffer);
 }
+
+export async function exportCelebrationText(req, res) {
+    const text = await service.generateCelebrationText(req.params.id);
+    res.type("text/plain; charset=utf-8");
+    res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(text.filename)}`
+    );
+    return res.send(text.content);
+}

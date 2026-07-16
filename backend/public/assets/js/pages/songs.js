@@ -1,37 +1,27 @@
 import {
     deleteSong,
+    getSongListPdf,
     getSongs,
     permanentlyDeleteSong,
     restoreSong
 } from "../api/songs.api.js";
 import { getTags } from "../api/tags.api.js";
-import { dataTable } from "../components/data-table.js";
 import { confirmDialog } from "../components/modal.js";
 import { pagination } from "../components/pagination.js";
 import { showFlash, showToast } from "../components/toast.js";
 import {
     emptyState,
     loadingState,
-    statusBadge,
     typeBadges
 } from "../components/ui.js";
 import {
     escapeHtml,
     formatDate,
+    songTypesLabel,
     SONG_TYPES
 } from "../utils/format.js";
 import { groupTags } from "../utils/tags.js";
 import { can, PERMISSIONS } from "../utils/permissions.js";
-
-const columns = [
-    { key: "title", label: "Cântico", sortable: true },
-    { key: "composerName", label: "Compositor", sortable: true },
-    { key: "songTypes", label: "Tipos" },
-    { key: "originalKey", label: "Tonalidade" },
-    { key: "updatedAt", label: "Atualizado", sortable: true },
-    { key: "status", label: "Estado" },
-    { key: "actions", label: '<span class="visually-hidden">Ações</span>' }
-];
 
 export function songsPage() {
     return {
@@ -45,12 +35,18 @@ export function songsPage() {
                         Consulte, mantenha e desenvolva a música utilizada pela sua comunidade.
                     </p>
                 </div>
-                ${can(PERMISSIONS.MANAGE_SONGS)
-                    ? `<a href="/songs/new" class="btn btn-primary" data-link>
-                        <i class="bi bi-plus-lg"></i>
-                        Adicionar cântico
-                    </a>`
-                    : ""}
+                <div class="d-flex flex-wrap gap-2">
+                    <button id="export-song-list" class="btn btn-light" type="button">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        Exportar listagem
+                    </button>
+                    ${can(PERMISSIONS.MANAGE_SONGS)
+                        ? `<a href="/songs/new" class="btn btn-primary" data-link>
+                            <i class="bi bi-plus-lg"></i>
+                            Adicionar cântico
+                        </a>`
+                        : ""}
+                </div>
             </section>
 
             <section class="card-surface">
@@ -68,6 +64,9 @@ export function songsPage() {
                     </div>
                     <div class="filter-controls">
                         ${filterSelect("status-filter", "Estado", [
+                            ...(can(PERMISSIONS.DELETE_SONGS)
+                                ? [["all", "Todos os cânticos"]]
+                                : []),
                             ["current", "Todos os atuais"],
                             ["active", "Ativos"],
                             ["inactive", "Inativos"],
@@ -84,6 +83,7 @@ export function songsPage() {
                         ])}
                         ${filterSelect("tag-filter", "Contexto", [["", "Todos os contextos"]])}
                         ${filterSelect("page-size-filter", "Por página", [
+                            ["10000", "Todos"],
                             ["10", "10 por página"],
                             ["25", "25 por página"],
                             ["50", "50 por página"],
@@ -116,6 +116,20 @@ async function mountSongsPage() {
 
     const tags = await getTags();
     populateTagSelect(document.querySelector("#tag-filter"), tags, state.tagId);
+
+    document.querySelector("#export-song-list").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+            const pdf = await getSongListPdf(state);
+            downloadBlob(pdf.blob, pdf.filename);
+            showToast("Listagem de cânticos exportada.");
+        } catch (error) {
+            showToast(error.message, "danger");
+        } finally {
+            button.disabled = false;
+        }
+    });
 
     const load = async () => {
         const sequence = ++requestSequence;
@@ -236,61 +250,107 @@ function renderSongs(response, state) {
     });
 
     result.innerHTML = `
-        ${dataTable({
-            columns,
-            rows: songs.map(songRow),
-            sortBy: response.sort.by,
-            sortOrder: response.sort.order,
-            emptyContent
-        })}
+        ${songs.length
+            ? `<div class="song-card-sort">
+                <span>Ordenar por</span>
+                ${sortButton("title", "Título", response.sort)}
+                ${sortButton("composerName", "Compositor", response.sort)}
+                ${sortButton("updatedAt", "Atualização", response.sort)}
+            </div>
+            <div class="song-card-list">
+                ${songs.map(songCard).join("")}
+            </div>`
+            : emptyContent}
         ${pagination(response.pagination)}
     `;
 }
 
-function songRow(song) {
+function songCard(song) {
     const encodedId = encodeURIComponent(song.id);
     const safeTitle = escapeHtml(song.title);
     const archived = Boolean(song.deletedAt);
     const title = archived
-        ? `<span class="song-title">${safeTitle}</span>`
-        : `<a href="/songs/${encodedId}" class="song-title" data-link>${safeTitle}</a>`;
+        ? `<span class="song-card-title">${safeTitle}</span>`
+        : `<a href="/songs/${encodedId}" class="song-card-title" data-link>${safeTitle}</a>`;
     const times = song.tags.filter(({ group }) => (
         group?.id === "tag-group-liturgical-season"
     ));
+    const tagChips = song.tags
+        .filter(({ group }) => group?.id !== "tag-group-liturgical-season")
+        .slice(0, 8);
     const secondaryCredits = [
         song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
         song.harmonizerName ? `Harm.: ${song.harmonizerName}` : ""
     ].filter(Boolean).join(" · ");
+    const excerpt = songExcerpt(song);
 
     return `
-        <tr>
-            <td>
-                ${title}
+        <article class="song-card-item">
+            <div class="song-card-main">
+                <div class="song-card-title-row">
+                    ${title}
+                </div>
+                <div class="song-card-author">
+                    ${escapeHtml(song.composerName)}
+                    ${secondaryCredits ? `<small>${escapeHtml(secondaryCredits)}</small>` : ""}
+                </div>
                 ${times.length
                     ? `<div class="song-liturgical-times">${times.map((tag) => (
-                        `<span class="type-badge">${escapeHtml(tag.name)}</span>`
+                        tagLink(tag, "type-badge")
                     )).join("")}</div>`
                     : ""}
                 ${song.subtitle
                     ? `<span class="song-subtitle">${escapeHtml(song.subtitle)}</span>`
                     : ""}
-            </td>
-            <td>
-                <span class="song-title">${escapeHtml(song.composerName)}</span>
-                ${secondaryCredits
-                    ? `<span class="song-subtitle">${escapeHtml(secondaryCredits)}</span>`
+                <p class="song-card-type-line">${escapeHtml(songTypesLabel(song.songTypes) || "Outro")}</p>
+                ${excerpt ? `<p class="song-card-excerpt">${escapeHtml(excerpt)}</p>` : ""}
+                ${tagChips.length
+                    ? `<div class="song-card-tags">${tagChips.map((tag) => (
+                        tagLink(tag)
+                    )).join("")}</div>`
                     : ""}
-            </td>
-            <td><div class="d-flex flex-wrap gap-1">${typeBadges(song.songTypes)}</div></td>
-            <td>${escapeHtml(song.originalKey || "—")}</td>
-            <td>${formatDate(song.updatedAt)}</td>
-            <td>${statusBadge(song.active, archived)}</td>
-            <td>
+            </div>
+            <div class="song-card-meta">
+                <div class="song-card-type-badges">${typeBadges(song.songTypes)}</div>
+                <small>${song.originalKey ? `Tonalidade: ${escapeHtml(song.originalKey)}` : formatDate(song.updatedAt)}</small>
+            </div>
+            <div class="song-card-actions">
                 <div class="row-actions">
                     ${archived ? restoreAction(song, safeTitle) : currentActions(song, encodedId, safeTitle)}
                 </div>
-            </td>
-        </tr>
+            </div>
+        </article>
+    `;
+}
+
+function songExcerpt(song) {
+    const source = song.lyrics || song.notes || song.subtitle || "";
+    return source
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 180);
+}
+
+function tagLink(tag, className = "") {
+    return `
+        <a
+            href="/songs?tagId=${encodeURIComponent(tag.id)}"
+            class="${className}"
+            data-link
+            title="Ver cânticos com a tag ${escapeHtml(tag.name)}"
+        >${escapeHtml(tag.name)}</a>
+    `;
+}
+
+function sortButton(key, label, sort) {
+    const active = sort.by === key;
+    const icon = active && sort.order === "asc" ? "arrow-up" : "arrow-down";
+    return `
+        <button
+            class="table-sort ${active ? "active" : ""}"
+            type="button"
+            data-sort="${key}"
+        >${label} ${active ? `<i class="bi bi-${icon}"></i>` : ""}</button>
     `;
 }
 
@@ -413,6 +473,7 @@ async function removeArchivedSong(button, reload) {
 
 function readState() {
     const query = new URLSearchParams(window.location.search);
+    const defaultStatus = can(PERMISSIONS.DELETE_SONGS) ? "all" : "current";
     const page = Number(query.get("page"));
     const pageSize = Number(query.get("pageSize"));
     const sortBy = query.get("sortBy");
@@ -423,14 +484,15 @@ function readState() {
     return {
         search: query.get("search") ?? "",
         page: Number.isInteger(page) && page > 0 ? page : 1,
-        pageSize: [10, 25, 50, 100].includes(pageSize) ? pageSize : 10,
+        pageSize: [10, 25, 50, 100, 10000].includes(pageSize) ? pageSize : 10000,
         sortBy: ["title", "composerName", "createdAt", "updatedAt"].includes(sortBy)
             ? sortBy
             : "title",
         sortOrder: ["asc", "desc"].includes(sortOrder) ? sortOrder : "asc",
-        status: ["current", "active", "inactive", "inactiveOrArchived", "archived"].includes(status)
+        status: ["all", "current", "active", "inactive", "inactiveOrArchived", "archived"].includes(status)
+            && (status !== "all" || can(PERMISSIONS.DELETE_SONGS))
             ? status
-            : "current",
+            : defaultStatus,
         songType: SONG_TYPES.some(([value]) => value === songType) ? songType : "",
         tagId: query.get("tagId") ?? ""
     };
@@ -440,10 +502,10 @@ function syncUrl(state) {
     const query = new URLSearchParams();
     const defaults = {
         page: 1,
-        pageSize: 10,
+        pageSize: 10000,
         sortBy: "title",
         sortOrder: "asc",
-        status: "current"
+        status: can(PERMISSIONS.DELETE_SONGS) ? "all" : "current"
     };
 
     Object.entries(state).forEach(([key, value]) => {
@@ -454,6 +516,15 @@ function syncUrl(state) {
 
     const suffix = query.size > 0 ? `?${query}` : "";
     window.history.replaceState({}, "", `/songs${suffix}`);
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function filterSelect(id, label, options) {

@@ -126,6 +126,23 @@ export function getRecentlyAddedSongs(limit = 5) {
     });
 }
 
+export function getRecentlyUpdatedSongs(limit = 5) {
+    return prisma.song.findMany({
+        where: { deletedAt: null },
+        orderBy: [
+            { updatedAt: "desc" },
+            { title: "asc" }
+        ],
+        take: limit,
+        select: {
+            id: true,
+            title: true,
+            types: { select: { type: true } },
+            updatedAt: true
+        }
+    });
+}
+
 export async function getLeastRecentlyUsedSongs(limit = 5) {
     const songs = await prisma.song.findMany({
         where: {

@@ -38,6 +38,7 @@ export const SONG_SORT_FIELDS = Object.freeze([
 ]);
 
 export const SONG_STATUSES = Object.freeze([
+    "all",
     "current",
     "active",
     "inactive",
