@@ -4,7 +4,10 @@ const massInclude = {
     season: true,
     celebration: true,
     songs: {
-        orderBy: { slot: "asc" },
+        orderBy: [
+            { slot: "asc" },
+            { position: "asc" }
+        ],
         include: {
             song: {
                 select: {
@@ -81,8 +84,14 @@ export function findForCelebrationPdf(id) {
             church: true,
             celebration: { select: { name: true } },
             songs: {
+                orderBy: [
+                    { slot: "asc" },
+                    { position: "asc" }
+                ],
                 select: {
                     slot: true,
+                    label: true,
+                    position: true,
                     song: {
                         select: {
                             id: true,

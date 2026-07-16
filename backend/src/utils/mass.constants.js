@@ -1,4 +1,4 @@
-export const MASS_SONG_SLOTS = Object.freeze([
+export const MASS_STANDARD_SONG_SLOTS = Object.freeze([
     "ENTRANCE",
     "PENITENTIAL",
     "ASPERSION",
@@ -11,6 +11,11 @@ export const MASS_SONG_SLOTS = Object.freeze([
     "COMMUNION",
     "THANKSGIVING",
     "FINAL"
+]);
+
+export const MASS_SONG_SLOTS = Object.freeze([
+    ...MASS_STANDARD_SONG_SLOTS,
+    "EXTRA"
 ]);
 
 export const CELEBRATION_PDF_SLOTS = Object.freeze([
@@ -37,5 +42,6 @@ export const MASS_FIELDS = Object.freeze([
     "choir",
     "comments",
     "active",
-    "songs"
+    "songs",
+    "extraSongs"
 ]);

@@ -810,6 +810,45 @@ a.sidebar-link:hover {
     color: #8a7ee0;
 }
 
+.extra-song-panel {
+    display: grid;
+    gap: 14px;
+}
+
+#extra-songs {
+    display: grid;
+    gap: 12px;
+}
+
+.extra-song-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 0.8fr) minmax(240px, 1.4fr) auto;
+    align-items: end;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--cantus-border);
+    border-radius: 18px;
+    background: #fbfbfd;
+}
+
+.extra-song-remove {
+    margin-bottom: 2px;
+}
+
+.mass-plan-row-extra {
+    background: rgba(101, 88, 211, 0.045);
+}
+
+@media (max-width: 767.98px) {
+    .extra-song-row {
+        grid-template-columns: 1fr;
+    }
+
+    .extra-song-remove {
+        justify-self: end;
+    }
+}
+
 .song-card-actions .icon-button:hover {
     border-color: #ffd5dc;
     color: #d95d6c;

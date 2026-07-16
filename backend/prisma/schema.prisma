@@ -62,6 +62,7 @@ enum UserRole {
 }
 
 enum MassSongSlot {
+  EXTRA
   ENTRANCE
   PENITENTIAL
   ASPERSION
@@ -241,15 +242,18 @@ model Mass {
 }
 
 model MassSong {
-  id     String       @id @default(uuid())
-  massId String
-  songId String
-  slot   MassSongSlot
+  id       String       @id @default(uuid())
+  massId   String
+  songId   String
+  slot     MassSongSlot
+  label    String?
+  position Int          @default(0)
 
   mass Mass @relation(fields: [massId], references: [id], onDelete: Cascade)
   song Song @relation(fields: [songId], references: [id])
 
-  @@unique([massId, slot])
+  @@unique([massId, slot, position])
+  @@index([massId, slot, position])
   @@index([songId])
 }
 

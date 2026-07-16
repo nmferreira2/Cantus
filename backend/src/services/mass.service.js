@@ -5,7 +5,7 @@ import { paginatedResponse } from "../utils/pagination.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import {
     CELEBRATION_PDF_SLOTS,
-    MASS_SONG_SLOTS
+    MASS_STANDARD_SONG_SLOTS
 } from "../utils/mass.constants.js";
 
 export async function getMasses(query) {
@@ -73,7 +73,14 @@ export async function generateCelebrationPdf(id) {
         throw new AppError(404, "Missa não encontrada.");
     }
 
-    const bySlot = new Map(mass.songs.map((item) => [item.slot, item.song]));
+    const bySlot = new Map(
+        mass.songs
+            .filter(({ slot }) => slot !== "EXTRA")
+            .map((item) => [item.slot, item.song])
+    );
+    const extraSongs = mass.songs
+        .filter(({ slot }) => slot === "EXTRA")
+        .sort((first, second) => first.position - second.position);
     const output = await PDFDocument.create();
 
     for (const slot of CELEBRATION_PDF_SLOTS) {
@@ -82,25 +89,11 @@ export async function generateCelebrationPdf(id) {
             continue;
         }
 
-        const score = selectCelebrationScore(song.scores);
-        const version = score?.versions[0];
-        if (!version) {
-            await addMissingScorePage(output, slot, song.title);
-            continue;
-        }
+        await appendSongScore(output, song, slot);
+    }
 
-        try {
-            const source = await PDFDocument.load(
-                await fileRepository.readStoredFile(version.relativePath)
-            );
-            const pages = await output.copyPages(source, source.getPageIndices());
-            pages.forEach((page) => output.addPage(page));
-        } catch {
-            throw new AppError(
-                422,
-                `Não foi possível incorporar a partitura PDF de “${song.title}”.`
-            );
-        }
+    for (const extra of extraSongs) {
+        await appendSongScore(output, extra.song, extra.label || "Cântico extra");
     }
 
     if (output.getPageCount() === 0) {
@@ -118,7 +111,14 @@ export async function generateCelebrationPdf(id) {
 
 export async function generateCelebrationText(id) {
     const mass = await getMass(id);
-    const bySlot = new Map(mass.songs.map((item) => [item.slot, item.song]));
+    const bySlot = new Map(
+        mass.songs
+            .filter(({ slot }) => slot !== "EXTRA")
+            .map((item) => [item.slot, item.song])
+    );
+    const extraSongs = mass.songs
+        .filter(({ slot }) => slot === "EXTRA")
+        .sort((first, second) => first.position - second.position);
     const lines = [
         mass.celebration?.name || "Missa",
         formatTextDate(mass.startsAt),
@@ -130,10 +130,18 @@ export async function generateCelebrationText(id) {
         "Plano musical"
     ].filter((line) => line !== "");
 
-    MASS_SONG_SLOTS.forEach((slot) => {
+    MASS_STANDARD_SONG_SLOTS.forEach((slot) => {
         const song = bySlot.get(slot);
         lines.push(`${slotLabel(slot)} - ${song ? songText(song) : "Sem cântico selecionado"}`);
     });
+
+    if (extraSongs.length > 0) {
+        lines.push("", "Cânticos extra");
+        extraSongs.forEach((item, index) => {
+            const label = item.label || `Extra ${index + 1}`;
+            lines.push(`${label} - ${songText(item.song)}`);
+        });
+    }
 
     if (mass.comments) {
         lines.push("", "Observações", mass.comments);
@@ -147,6 +155,28 @@ export async function generateCelebrationText(id) {
 
 function selectCelebrationScore(scores) {
     return scores.find(({ category }) => category === "CHOIR") ?? scores[0] ?? null;
+}
+
+async function appendSongScore(output, song, slot) {
+    const score = selectCelebrationScore(song.scores);
+    const version = score?.versions[0];
+    if (!version) {
+        await addMissingScorePage(output, slot, song.title);
+        return;
+    }
+
+    try {
+        const source = await PDFDocument.load(
+            await fileRepository.readStoredFile(version.relativePath)
+        );
+        const pages = await output.copyPages(source, source.getPageIndices());
+        pages.forEach((page) => output.addPage(page));
+    } catch {
+        throw new AppError(
+            422,
+            `Não foi possível incorporar a partitura PDF de “${song.title}”.`
+        );
+    }
 }
 
 async function addMissingScorePage(document, slot, title) {

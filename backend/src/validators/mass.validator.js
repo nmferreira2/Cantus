@@ -52,7 +52,10 @@ export function parseMass(payload) {
     if (typeof active !== "boolean") {
         errors.active = "O estado ativo deve ser verdadeiro ou falso.";
     }
-    const songs = parseSongs(payload.songs, errors);
+    const songs = [
+        ...parseSongs(payload.songs, errors),
+        ...parseExtraSongs(payload.extraSongs, errors)
+    ];
 
     const data = {
         startsAt,
@@ -141,16 +144,45 @@ function parseSongs(value, errors) {
             if (typeof songId !== "string") {
                 errors.songs = "Os identificadores dos cânticos devem ser texto.";
             }
-            return { slot, songId };
+            return { slot, songId, position: 0, label: null };
         });
 }
 
-function requiredText(value, field, maximum, errors) {
-    if (typeof value !== "string" || !value.trim()) {
-        errors[field] = `${fieldLabel(field)} é obrigatório.`;
-        return "";
+function parseExtraSongs(value, errors) {
+    if (value === undefined || value === null) {
+        return [];
     }
-    return optionalText(value, field, maximum, errors);
+    if (!Array.isArray(value)) {
+        errors.extraSongs = "Os cânticos extra devem estar numa lista.";
+        return [];
+    }
+    if (value.length > 20) {
+        errors.extraSongs = "Não pode adicionar mais de 20 cânticos extra.";
+    }
+
+    return value
+        .map((item, index) => {
+            if (!item || typeof item !== "object" || Array.isArray(item)) {
+                errors.extraSongs = "Cada cântico extra deve ter dados válidos.";
+                return null;
+            }
+            const songId = optionalText(
+                item.songId,
+                `extraSongs.${index}.songId`,
+                100,
+                errors
+            );
+            const label = optionalText(
+                item.label,
+                `extraSongs.${index}.label`,
+                100,
+                errors
+            );
+            return songId
+                ? { slot: "EXTRA", songId, label, position: index }
+                : null;
+        })
+        .filter(Boolean);
 }
 
 function optionalText(value, field, maximum, errors) {

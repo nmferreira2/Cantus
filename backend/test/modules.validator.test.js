@@ -98,9 +98,20 @@ test("Mass validation normalizes song slots and rejects unknown slots", () => {
             ASPERSION: "song-2",
             COMMUNION: "song-3",
             THANKSGIVING: "song-4"
-        }
+        },
+        extraSongs: [
+            { label: "Osculação", songId: "song-5" },
+            { label: "Osculação", songId: "song-6" }
+        ]
     });
-    assert.equal(mass.songs.length, 4);
+    assert.equal(mass.songs.length, 6);
+    assert.deepEqual(
+        mass.songs.slice(-2).map(({ slot, label, position }) => ({ slot, label, position })),
+        [
+            { slot: "EXTRA", label: "Osculação", position: 0 },
+            { slot: "EXTRA", label: "Osculação", position: 1 }
+        ]
+    );
     assert.ok(mass.startsAt instanceof Date);
     assert.equal(
         parseMass({ startsAt: "2026-12-25T10:00:00.000Z" }).church,
