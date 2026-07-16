@@ -290,9 +290,12 @@ function songCard(song) {
                 <div class="song-card-title-row">
                     ${title}
                 </div>
-                <div class="song-card-author">
-                    ${escapeHtml(song.composerName)}
-                    ${secondaryCredits ? `<small>${escapeHtml(secondaryCredits)}</small>` : ""}
+                <div class="song-card-author song-card-author-with-photo">
+                    ${composerPhoto(song)}
+                    <span class="song-card-author-copy">
+                        <span>${escapeHtml(song.composerName)}</span>
+                        ${secondaryCredits ? `<small>${escapeHtml(secondaryCredits)}</small>` : ""}
+                    </span>
                 </div>
                 ${times.length
                     ? `<div class="song-liturgical-times">${times.map((tag) => (
@@ -320,6 +323,16 @@ function songCard(song) {
                 </div>
             </div>
         </article>
+    `;
+}
+
+function composerPhoto(song) {
+    return `
+        <span class="song-composer-photo" aria-hidden="true">
+            ${song.composerPhotoUrl
+                ? `<img src="${escapeHtml(song.composerPhotoUrl)}" alt="">`
+                : '<i class="bi bi-person"></i>'}
+        </span>
     `;
 }
 

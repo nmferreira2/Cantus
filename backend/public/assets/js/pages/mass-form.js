@@ -11,6 +11,15 @@ import { router } from "../router.js";
 import { escapeHtml } from "../utils/format.js";
 import { MASS_SLOTS } from "../utils/masses.js";
 
+const ORDINARY_SLOT_TAGS = Object.freeze({
+    PENITENTIAL: ["Ato Penitencial", "Acto Penitencial", "Kyrie"],
+    ASPERSION: ["Aspersão", "Rito da Aspersão"],
+    GLORIA: ["Glória"],
+    ALLELUIA: ["Aclamação ao Evangelho", "Aleluia"],
+    HOLY: ["Santo"],
+    LAMB_OF_GOD: ["Cordeiro de Deus"]
+});
+
 export function massFormPage(id = null) {
     const editing = Boolean(id);
     return {
@@ -86,7 +95,14 @@ async function mount(id) {
 
 function fillOptions(form, references, songs) {
     form.elements.seasonId.innerHTML = `<option value="">Escolha o tempo</option>${references.seasons.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("")}`;
-    const songOptions = `<option value="">Sem cântico selecionado</option>${songs.map((song) => {
+    document.querySelector("#mass-slots").innerHTML = MASS_SLOTS.map(([slot, label]) => {
+        const slotSongs = songsForSlot(songs, slot);
+        return `<div class="form-field"><label class="form-label" for="slot-${slot}">${label}</label><select id="slot-${slot}" name="slot-${slot}" class="form-select">${songOptions(slotSongs)}</select></div>`;
+    }).join("");
+}
+
+function songOptions(songs) {
+    return `<option value="">Sem cântico selecionado</option>${songs.map((song) => {
         const credits = [
             song.arrangerName ? `Arr.: ${song.arrangerName}` : "",
             song.harmonizerName ? `Harm.: ${song.harmonizerName}` : ""
@@ -95,7 +111,26 @@ function fillOptions(form, references, songs) {
             `${song.title} — ${song.composerName}${credits ? ` [${credits}]` : ""}`
         )}</option>`;
     }).join("")}`;
-    document.querySelector("#mass-slots").innerHTML = MASS_SLOTS.map(([slot, label]) => `<div class="form-field"><label class="form-label" for="slot-${slot}">${label}</label><select id="slot-${slot}" name="slot-${slot}" class="form-select">${songOptions}</select></div>`).join("");
+}
+
+function songsForSlot(songs, slot) {
+    const tagNames = ORDINARY_SLOT_TAGS[slot];
+    if (!tagNames) {
+        return songs;
+    }
+
+    const normalizedTags = tagNames.map(normalize);
+    return songs.filter((song) => (
+        song.tags?.some((tag) => normalizedTags.includes(normalize(tag.name)))
+    ));
+}
+
+function normalize(value) {
+    return String(value ?? "")
+        .trim()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toLocaleLowerCase("pt-PT");
 }
 
 function fillMass(form, mass) {

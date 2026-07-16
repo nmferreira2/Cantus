@@ -5,23 +5,12 @@ import {
     getMassReferences,
     restoreMass
 } from "../api/masses.api.js";
-import { dataTable } from "../components/data-table.js";
 import { confirmDialog } from "../components/modal.js";
 import { pagination } from "../components/pagination.js";
 import { showFlash, showToast } from "../components/toast.js";
 import { emptyState, loadingState, statusBadge } from "../components/ui.js";
 import { escapeHtml } from "../utils/format.js";
 import { formatDateTime } from "../utils/masses.js";
-
-const columns = [
-    { key: "date", label: "Data e hora", sortable: true },
-    { key: "celebration", label: "Celebração", sortable: true },
-    { key: "church", label: "Igreja", sortable: true },
-    { key: "season", label: "Tempo litúrgico", sortable: true },
-    { key: "songs", label: "Cânticos", sortable: true },
-    { key: "status", label: "Estado", sortable: true },
-    { key: "actions", label: '<span class="visually-hidden">Ações</span>' }
-];
 
 export function massesPage() {
     return {
@@ -112,18 +101,81 @@ async function mount() {
 
 function renderList(response) {
     document.querySelector("#mass-count").textContent = `${response.pagination.totalItems} ${response.pagination.totalItems === 1 ? "missa" : "missas"}`;
-    document.querySelector("#masses-result").innerHTML = `${dataTable({
-        columns,
-        rows: response.data.map(massRow),
-        sortBy: response.sort?.by ?? "date",
-        sortOrder: response.sort?.order ?? "desc",
-        emptyContent: emptyState({ icon: "calendar3", title: "Nenhuma missa encontrada", description: "Planeie a próxima celebração.", action: '<a href="/masses/new" class="btn btn-outline-primary" data-link>Planear missa</a>' })
-    })}${pagination(response.pagination)}`;
+    const emptyContent = emptyState({
+        icon: "calendar3",
+        title: "Nenhuma missa encontrada",
+        description: "Planeie a próxima celebração.",
+        action: '<a href="/masses/new" class="btn btn-outline-primary" data-link>Planear missa</a>'
+    });
+
+    document.querySelector("#masses-result").innerHTML = `
+        ${response.data.length
+            ? `<div class="song-card-sort">
+                <span>Ordenar por</span>
+                ${sortButton("date", "Data e hora", response.sort)}
+                ${sortButton("celebration", "Celebração", response.sort)}
+                ${sortButton("church", "Igreja", response.sort)}
+                ${sortButton("season", "Tempo litúrgico", response.sort)}
+                ${sortButton("songs", "Cânticos", response.sort)}
+                ${sortButton("status", "Estado", response.sort)}
+            </div>
+            <div class="song-card-list mass-card-list">
+                ${response.data.map(massCard).join("")}
+            </div>`
+            : emptyContent}
+        ${pagination(response.pagination)}
+    `;
 }
 
-function massRow(mass) {
-    const archived = Boolean(mass.deletedAt); const id = encodeURIComponent(mass.id); const label = escapeHtml(mass.celebration?.name || "Missa");
-    return `<tr><td>${archived ? formatDateTime(mass.startsAt) : `<a href="/masses/${id}" class="song-title" data-link>${formatDateTime(mass.startsAt)}</a>`}</td><td>${label}</td><td>${escapeHtml(mass.church)}</td><td>${escapeHtml(mass.season?.name || "—")}</td><td>${mass.songs.length}</td><td>${statusBadge(mass.active, archived)}</td><td><div class="row-actions">${archived ? `<button class="btn btn-sm btn-light" data-restore-mass="${mass.id}" data-label="${label}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>` : `<a href="/masses/${id}" class="icon-button" data-link><i class="bi bi-eye"></i></a><a href="/masses/${id}/edit" class="icon-button" data-link><i class="bi bi-pencil"></i></a><button class="icon-button icon-button-danger" data-archive-mass="${mass.id}" data-label="${label}"><i class="bi bi-archive"></i></button>`}</div></td></tr>`;
+function massCard(mass) {
+    const archived = Boolean(mass.deletedAt);
+    const id = encodeURIComponent(mass.id);
+    const rawLabel = mass.celebration?.name || "Missa";
+    const label = escapeHtml(rawLabel);
+    const title = archived
+        ? `<span class="song-card-title">${label}</span>`
+        : `<a href="/masses/${id}" class="song-card-title" data-link>${label}</a>`;
+    const songsCount = mass.songs.length;
+    const church = mass.church || "S. Salvador de Fornelos";
+    const season = mass.season?.name || "Sem tempo litúrgico";
+    const choir = mass.choir ? `<span><i class="bi bi-people"></i> ${escapeHtml(mass.choir)}</span>` : "";
+
+    return `
+        <article class="song-card-item mass-card-item">
+            <div class="song-card-main">
+                <div class="song-card-title-row">${title}</div>
+                <div class="mass-card-date"><i class="bi bi-calendar-event"></i> ${formatDateTime(mass.startsAt)}</div>
+                <div class="mass-card-context">
+                    <span><i class="bi bi-geo-alt"></i> ${escapeHtml(church)}</span>
+                    <span><i class="bi bi-calendar3"></i> ${escapeHtml(season)}</span>
+                    ${choir}
+                </div>
+                <p class="song-card-type-line">${songsCount} ${songsCount === 1 ? "cântico selecionado" : "cânticos selecionados"}</p>
+            </div>
+            <div class="song-card-meta">
+                <small>${statusBadge(mass.active, archived)}</small>
+            </div>
+            <div class="song-card-actions">
+                <div class="row-actions">
+                    ${archived
+                        ? `<button class="btn btn-sm btn-light" data-restore-mass="${mass.id}" data-label="${label}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`
+                        : `<a href="/masses/${id}" class="icon-button" data-link title="Ver"><i class="bi bi-eye"></i></a><a href="/masses/${id}/edit" class="icon-button" data-link title="Editar"><i class="bi bi-pencil"></i></a><button class="icon-button icon-button-danger" data-archive-mass="${mass.id}" data-label="${label}" title="Eliminar"><i class="bi bi-trash3"></i></button>`}
+                </div>
+            </div>
+        </article>
+    `;
+}
+
+function sortButton(key, label, sort = {}) {
+    const active = sort.by === key;
+    const icon = active && sort.order === "asc" ? "arrow-up" : "arrow-down";
+    return `
+        <button
+            class="table-sort ${active ? "active" : ""}"
+            type="button"
+            data-sort="${key}"
+        >${escapeHtml(label)} <i class="bi bi-${icon}"></i></button>
+    `;
 }
 
 function renderCalendar(month, masses) {
@@ -172,8 +224,15 @@ function positiveInteger(value, fallback) {
 }
 
 async function toggleArchive(button, restoring, reload) {
-    const confirmed = await confirmDialog({ title: `${restoring ? "Restaurar" : "Arquivar"} missa?`, message: `${button.dataset.label} será ${restoring ? "restaurada" : "mantida no arquivo"}.`, confirmLabel: restoring ? "Restaurar" : "Arquivar", variant: restoring ? "primary" : "danger" });
+    const confirmed = await confirmDialog({
+        title: restoring ? "Restaurar missa?" : "Eliminar planeamento?",
+        message: restoring
+            ? `${button.dataset.label} será restaurada.`
+            : `${button.dataset.label} será removida da lista de missas.`,
+        confirmLabel: restoring ? "Restaurar" : "Eliminar",
+        variant: restoring ? "primary" : "danger"
+    });
     if (!confirmed) return; button.disabled = true;
-    try { if (restoring) await restoreMass(button.dataset.restoreMass); else await archiveMass(button.dataset.archiveMass); showToast(`Missa ${restoring ? "restaurada" : "arquivada"}.`); await reload(); }
+    try { if (restoring) await restoreMass(button.dataset.restoreMass); else await archiveMass(button.dataset.archiveMass); showToast(`Planeamento ${restoring ? "restaurado" : "eliminado"}.`); await reload(); }
     catch (error) { showToast(error.message, "danger"); button.disabled = false; }
 }

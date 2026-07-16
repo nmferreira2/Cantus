@@ -127,12 +127,7 @@ export async function getAllSongs(query) {
         ]);
 
     return {
-        data: songs.map(({ _count, tagLinks: links, types, ...song }) => ({
-            ...song,
-            songTypes: types.map(({ type }) => type),
-            tags: links.map(({ tag }) => tag),
-            attachmentCount: _count.attachments
-        })),
+        data: await presentSongList(songs),
         total
     };
 }
@@ -182,6 +177,66 @@ function sortSongsInPortuguese(songs, query) {
         comparePortuguese(first[query.sortBy], second[query.sortBy]) * direction
         || comparePortuguese(first.title, second.title)
     ));
+}
+
+async function presentSongList(songs) {
+    const composerPhotos = await composerPhotoMap(songs);
+
+    return songs.map(({ _count, tagLinks: links, types, ...song }) => ({
+        ...song,
+        composerPhotoUrl: composerPhotos.get(normalizeContributorName(song.composerName)) ?? null,
+        songTypes: types.map(({ type }) => type),
+        tags: links.map(({ tag }) => tag),
+        attachmentCount: _count.attachments
+    }));
+}
+
+async function composerPhotoMap(songs) {
+    const composerNames = [
+        ...new Set(songs.map(({ composerName }) => composerName).filter(Boolean))
+    ];
+
+    if (!composerNames.length) {
+        return new Map();
+    }
+
+    const contributors = await prisma.contributor.findMany({
+        where: {
+            deletedAt: null,
+            OR: [
+                { name: { in: composerNames } },
+                { displayName: { in: composerNames } }
+            ]
+        },
+        select: {
+            name: true,
+            displayName: true,
+            photoPath: true
+        }
+    });
+
+    const photos = new Map();
+    contributors
+        .filter(({ photoPath }) => Boolean(photoPath))
+        .forEach((contributor) => {
+            const displayName = contributor.displayName || contributor.name;
+            [contributor.name, contributor.displayName]
+                .filter(Boolean)
+                .forEach((name) => {
+                    photos.set(
+                        normalizeContributorName(name),
+                        `/api/composers/${encodeURIComponent(displayName)}/photo`
+                    );
+                });
+        });
+
+    return photos;
+}
+
+function normalizeContributorName(value) {
+    return String(value ?? "")
+        .trim()
+        .toLocaleLowerCase("pt-PT");
 }
 
 function songOrderBy(query) {
