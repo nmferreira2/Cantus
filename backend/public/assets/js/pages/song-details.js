@@ -129,17 +129,25 @@ function renderSong(song) {
 
 function bindActions(song) {
     document.querySelector("#delete-song")?.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const button = event.currentTarget;
+        if (button.disabled) {
+            return;
+        }
+
         const confirmed = await confirmDialog({
             title: "Arquivar cântico?",
             message: `“${song.title}” sairá do repertório atual, mas poderá ser restaurado mais tarde.`,
-            confirmLabel: "Arquivar"
+            confirmLabel: "Arquivar",
+            variant: "danger"
         });
 
         if (!confirmed) {
             return;
         }
 
-        event.currentTarget.disabled = true;
+        button.disabled = true;
 
         try {
             await deleteSong(song.id);
@@ -147,7 +155,7 @@ function bindActions(song) {
             router.navigate("/songs?status=archived");
         } catch (error) {
             showToast(error.message, "danger");
-            event.currentTarget.disabled = false;
+            button.disabled = false;
         }
     });
 

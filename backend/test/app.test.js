@@ -142,6 +142,7 @@ test("tags API is available and songs require a composer", async (context) => {
     const arrangerName = `Arranjador ${suffix}`;
     const harmonizerName = `Harmonizador ${suffix}`;
     const canonicalComposer = `Compositor unificado ${suffix}`;
+    const accentSuffix = `ordem-acentos-${suffix}`;
     const createResponse = await fetch(`${baseUrl}/songs`, {
         method: "POST",
         headers: {
@@ -201,6 +202,47 @@ test("tags API is available and songs require a composer", async (context) => {
     assert.ok(composers.some(({ name }) => name === arrangerName));
     assert.ok(composers.some(({ name }) => name === harmonizerName));
 
+    const accentedSongs = [];
+    for (const title of [
+        `Ala ${accentSuffix}`,
+        `Água ${accentSuffix}`,
+        `Àrvore ${accentSuffix}`,
+        `Ânimo ${accentSuffix}`,
+        `Ãnimo ${accentSuffix}`
+    ]) {
+        const response = await fetch(`${baseUrl}/songs`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Cookie: cookie
+            },
+            body: JSON.stringify({
+                title,
+                composerName: firstComposer,
+                songTypes: ["OTHER"],
+                active: true,
+                tagIds: []
+            })
+        });
+        assert.equal(response.status, 201);
+        accentedSongs.push(await response.json());
+    }
+    const accentedListResponse = await fetch(
+        `${baseUrl}/songs?search=${encodeURIComponent(accentSuffix)}&sortBy=title&sortOrder=asc&pageSize=10`,
+        { headers: { Cookie: cookie } }
+    );
+    assert.equal(accentedListResponse.status, 200);
+    assert.deepEqual(
+        (await accentedListResponse.json()).data.map(({ title }) => title),
+        [
+            `Ala ${accentSuffix}`,
+            `Água ${accentSuffix}`,
+            `Àrvore ${accentSuffix}`,
+            `Ânimo ${accentSuffix}`,
+            `Ãnimo ${accentSuffix}`
+        ]
+    );
+
     const mergeResponse = await fetch(`${baseUrl}/composers/merge`, {
         method: "POST",
         headers: {
@@ -213,13 +255,16 @@ test("tags API is available and songs require a composer", async (context) => {
         })
     });
     assert.equal(mergeResponse.status, 200);
-    assert.equal((await mergeResponse.json()).updatedSongs, 2);
+    assert.equal((await mergeResponse.json()).updatedSongs, accentedSongs.length + 2);
     const composerDetailResponse = await fetch(
         `${baseUrl}/composers/${encodeURIComponent(canonicalComposer)}`,
         { headers: { Cookie: cookie } }
     );
     assert.equal(composerDetailResponse.status, 200);
-    assert.equal((await composerDetailResponse.json()).songs.length, 2);
+    assert.equal(
+        (await composerDetailResponse.json()).songs.length,
+        accentedSongs.length + 2
+    );
 
     const mergedSongResponse = await fetch(`${baseUrl}/songs/${song.id}`, {
         headers: { Cookie: cookie }
@@ -276,6 +321,19 @@ test("tags API is available and songs require a composer", async (context) => {
         { method: "DELETE", headers: { Cookie: cookie } }
     );
     assert.equal(permanentDeleteResponse.status, 204);
+
+    for (const accentedSong of accentedSongs) {
+        const archiveAccentResponse = await fetch(
+            `${baseUrl}/songs/${accentedSong.id}`,
+            { method: "DELETE", headers: { Cookie: cookie } }
+        );
+        assert.equal(archiveAccentResponse.status, 204);
+        const deleteAccentResponse = await fetch(
+            `${baseUrl}/songs/${accentedSong.id}/permanent`,
+            { method: "DELETE", headers: { Cookie: cookie } }
+        );
+        assert.equal(deleteAccentResponse.status, 204);
+    }
 
     const archiveSecondResponse = await fetch(
         `${baseUrl}/songs/${secondSong.id}`,

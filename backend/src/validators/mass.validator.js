@@ -85,7 +85,7 @@ export function parseMassQuery(query = {}) {
         page: integer(query.page, 1, 1, Number.MAX_SAFE_INTEGER, "page", errors),
         pageSize: integer(query.pageSize, 10, 1, 100, "pageSize", errors),
         sortBy: query.sortBy ?? "date",
-        sortOrder: query.sortOrder ?? "asc",
+        sortOrder: query.sortOrder ?? "desc",
         status: query.status ?? "current",
         seasonId: typeof query.seasonId === "string" ? query.seasonId : ""
     };

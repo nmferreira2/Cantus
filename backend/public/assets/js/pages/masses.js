@@ -48,7 +48,7 @@ async function mount() {
         page: positiveInteger(query.get("page"), 1),
         pageSize: 10,
         sortBy: ["date", "celebration", "church", "season", "songs", "status"].includes(query.get("sortBy")) ? query.get("sortBy") : "date",
-        sortOrder: ["asc", "desc"].includes(query.get("sortOrder")) ? query.get("sortOrder") : "asc"
+        sortOrder: ["asc", "desc"].includes(query.get("sortOrder")) ? query.get("sortOrder") : "desc"
     };
     const references = await getMassReferences();
     document.querySelector("#mass-season").insertAdjacentHTML("beforeend", references.seasons.map((season) => `<option value="${escapeHtml(season.id)}">${escapeHtml(season.name)}</option>`).join(""));
@@ -116,7 +116,7 @@ function renderList(response) {
         columns,
         rows: response.data.map(massRow),
         sortBy: response.sort?.by ?? "date",
-        sortOrder: response.sort?.order ?? "asc",
+        sortOrder: response.sort?.order ?? "desc",
         emptyContent: emptyState({ icon: "calendar3", title: "Nenhuma missa encontrada", description: "Planeie a próxima celebração.", action: '<a href="/masses/new" class="btn btn-outline-primary" data-link>Planear missa</a>' })
     })}${pagination(response.pagination)}`;
 }
@@ -146,7 +146,7 @@ function syncUrl(state) {
     const defaults = {
         page: 1,
         sortBy: "date",
-        sortOrder: "asc",
+        sortOrder: "desc",
         status: "current"
     };
 

@@ -61,25 +61,29 @@ export async function generateSongListPdf(query) {
     const bold = await document.embedFont(StandardFonts.HelveticaBold);
     let page;
     let y = 0;
+    let pageCount = 0;
 
     const newPage = () => {
+        pageCount += 1;
         page = document.addPage([841.89, 595.28]);
         y = 535;
-        page.drawText("Listagem de cânticos", {
-            x: 40,
-            y,
-            size: 18,
-            font: bold,
-            color: rgb(0.12, 0.13, 0.16)
-        });
-        page.drawText(`${songs.length} ${songs.length === 1 ? "cântico" : "cânticos"}`, {
-            x: 40,
-            y: y - 20,
-            size: 9,
-            font,
-            color: rgb(0.43, 0.45, 0.5)
-        });
-        y -= 48;
+        if (pageCount === 1) {
+            page.drawText("Listagem de Cânticos", {
+                x: 40,
+                y,
+                size: 18,
+                font: bold,
+                color: rgb(0.12, 0.13, 0.16)
+            });
+            page.drawText(`${songs.length} ${songs.length === 1 ? "cântico" : "cânticos"}`, {
+                x: 40,
+                y: y - 20,
+                size: 9,
+                font,
+                color: rgb(0.43, 0.45, 0.5)
+            });
+            y -= 48;
+        }
         drawHeader(page, bold, y);
         y -= 20;
     };

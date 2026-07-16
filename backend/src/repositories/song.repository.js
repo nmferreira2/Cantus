@@ -111,21 +111,20 @@ const detailRelations = {
 
 export async function getAllSongs(query) {
     const where = buildSongWhere(query);
-    const orderBy = [
-        { [query.sortBy]: query.sortOrder },
-        ...(query.sortBy === "title" ? [] : [{ title: "asc" }])
-    ];
+    const textSorted = ["title", "composerName", "language"].includes(query.sortBy);
 
-    const [songs, total] = await prisma.$transaction([
-        prisma.song.findMany({
-            where,
-            orderBy,
-            skip: (query.page - 1) * query.pageSize,
-            take: query.pageSize,
-            select: listSelection
-        }),
-        prisma.song.count({ where })
-    ]);
+    const [songs, total] = textSorted
+        ? await songsSortedInPortuguese(where, query)
+        : await prisma.$transaction([
+            prisma.song.findMany({
+                where,
+                orderBy: songOrderBy(query),
+                skip: (query.page - 1) * query.pageSize,
+                take: query.pageSize,
+                select: listSelection
+            }),
+            prisma.song.count({ where })
+        ]);
 
     return {
         data: songs.map(({ _count, tagLinks: links, types, ...song }) => ({
@@ -140,23 +139,56 @@ export async function getAllSongs(query) {
 
 export async function getSongsForExport(query) {
     const where = buildSongWhere(query);
-    const orderBy = [
-        { [query.sortBy]: query.sortOrder },
-        ...(query.sortBy === "title" ? [] : [{ title: "asc" }])
-    ];
 
     const songs = await prisma.song.findMany({
         where,
-        orderBy,
+        orderBy: ["title", "composerName", "language"].includes(query.sortBy)
+            ? { updatedAt: "desc" }
+            : songOrderBy(query),
         select: listSelection
     });
 
-    return songs.map(({ _count, tagLinks: links, types, ...song }) => ({
+    const sorted = ["title", "composerName", "language"].includes(query.sortBy)
+        ? sortSongsInPortuguese(songs, query)
+        : songs;
+
+    return sorted.map(({ _count, tagLinks: links, types, ...song }) => ({
         ...song,
         songTypes: types.map(({ type }) => type),
         tags: links.map(({ tag }) => tag),
         attachmentCount: _count.attachments
     }));
+}
+
+async function songsSortedInPortuguese(where, query) {
+    const songs = await prisma.song.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        select: listSelection
+    });
+    const sorted = sortSongsInPortuguese(songs, query);
+    return [
+        sorted.slice(
+            (query.page - 1) * query.pageSize,
+            query.page * query.pageSize
+        ),
+        sorted.length
+    ];
+}
+
+function sortSongsInPortuguese(songs, query) {
+    const direction = query.sortOrder === "desc" ? -1 : 1;
+    return [...songs].sort((first, second) => (
+        comparePortuguese(first[query.sortBy], second[query.sortBy]) * direction
+        || comparePortuguese(first.title, second.title)
+    ));
+}
+
+function songOrderBy(query) {
+    return [
+        { [query.sortBy]: query.sortOrder },
+        ...(query.sortBy === "title" ? [] : [{ title: "asc" }])
+    ];
 }
 
 export async function getSongById(id) {
@@ -360,4 +392,48 @@ function presentSong(song) {
                 new Date(second.startsAt) - new Date(first.startsAt)
             ))
     };
+}
+
+function comparePortuguese(firstValue, secondValue) {
+    const first = String(firstValue ?? "");
+    const second = String(secondValue ?? "");
+    const maximum = Math.max(first.length, second.length);
+
+    for (let index = 0; index < maximum; index += 1) {
+        const firstPart = characterSortParts(first[index]);
+        const secondPart = characterSortParts(second[index]);
+
+        if (!firstPart && !secondPart) return 0;
+        if (!firstPart) return -1;
+        if (!secondPart) return 1;
+
+        const base = firstPart.base.localeCompare(secondPart.base, "pt-PT");
+        if (base !== 0) return base;
+        if (firstPart.accent !== secondPart.accent) {
+            return firstPart.accent - secondPart.accent;
+        }
+    }
+
+    return 0;
+}
+
+function characterSortParts(character) {
+    if (!character) {
+        return null;
+    }
+
+    const normalized = character.toLocaleLowerCase("pt-PT").normalize("NFD");
+    return {
+        base: normalized[0] ?? "",
+        accent: accentRank(normalized.slice(1))
+    };
+}
+
+function accentRank(marks) {
+    if (!marks) return 0;
+    if (marks.includes("\u0301")) return 1;
+    if (marks.includes("\u0300")) return 2;
+    if (marks.includes("\u0302")) return 3;
+    if (marks.includes("\u0303")) return 4;
+    return 5;
 }
